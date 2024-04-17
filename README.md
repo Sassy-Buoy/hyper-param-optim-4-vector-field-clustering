@@ -8,7 +8,9 @@ backgroundImage: url('https://marp.app/assets/hero-background.jpg')
 paginate: true
 ---
 
-# Optuna: An Introduction
+# ML for Vector Field Analysis
+
+---
 
 ## What is Optuna?
 
@@ -72,7 +74,7 @@ print("Best parameters:", best_params)
 - **Any Parameter Tuning**: Suitable for any parameter optimization task.
 
 ---
-# ML for Vector Field Analysis
+# 
 
 ## Auto encoder optimization :
 - number of layers

@@ -2,7 +2,7 @@ from tensorflow.keras.layers import InputLayer, Conv2D, MaxPool2D, Conv2DTranspo
 from tensorflow.keras.models import Sequential
 
 
-class Autoencoder(Sequential, name='autoencoder'):
+class Autoencoder(Sequential):
     """Autoencoder class that inherits from Keras' Sequential class."""
     def __init__(self,
                  num_layers,
