@@ -18,7 +18,7 @@ class Autoencoder(Sequential):
         super().__init__()
 
         # set output_dim
-        filters.append(output_dim[-1])
+        filters.append(output_dim)
 
         # Encoder
         self.encoder = Sequential(name='encoder')

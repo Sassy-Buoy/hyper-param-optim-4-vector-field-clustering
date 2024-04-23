@@ -36,8 +36,9 @@ class Hyper:
         activations = [trial.suggest_categorical(
             f'activation_{i}', ['relu', 'selu', 'tanh', 'sigmoid']) for i in range(num_layers)]
 
-        paddings = [trial.suggest_categorical(
-            f'padding_{i}', ['same', 'valid']) for i in range(num_layers)]
+        paddings = ['same' for i in range(num_layers)]
+        #paddings = [trial.suggest_categorical(
+        #    f'padding_{i}', ['same', 'same']) for i in range(num_layers)]
 
         kernel_initializers = [(trial.suggest_categorical(
             f'initializer_{i}', ['lecun_normal',
