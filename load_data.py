@@ -5,6 +5,7 @@ import discretisedfield as df
 
 
 def load():
+    """Load the data from the simulations."""
     simulation_file_paths = list(
         pl.Path("sims").glob("Configs_*/drive-[0-9]/Configs_*.omf")
     )
