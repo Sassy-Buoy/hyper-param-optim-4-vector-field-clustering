@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.model_selection import KFold
-from sklearn.cluster import DBSCAN
 
 
 class Conv2dSame(nn.Conv2d):
@@ -135,7 +134,7 @@ class Encoder(nn.Module):
                 x = layer(x)
 
         # check if the output has the correct shape
-        if x.size() != (1, 3, 1, 1):
+        if (x.size()[1], x.size()[2], x.size()[3]) != (3, 1, 1):
             raise ValueError(
                 "Output shape does not match expected shape." + str(x.size()))
         return x, indices_list
@@ -174,40 +173,10 @@ class Decoder(nn.Module):
             else:
                 x = layer(x)
         # check if the output has the correct shape
-        if x.size() != (1, 3, 80, 80):
+        if (x.size()[1], x.size()[2], x.size()[3]) != (3, 80, 80):
             raise ValueError(
                 "Output shape does not mutch expected shape." + str(x.size()))
         return x
-
-
-class DBSCANLayer(torch.nn.Module):
-    """DBSCAN layer that inherits from PyTorch's nn.Module class."""
-
-    def __init__(self, eps, min_samples):
-        super(DBSCANLayer, self).__init__()
-        self.eps = eps
-        self.min_samples = min_samples
-
-    def forward(self, x):
-        """Forward pass through the DBSCAN layer."""
-        # Convert PyTorch tensor to numpy array
-        x_np = x.detach().cpu().numpy()
-
-        # Perform DBSCAN clustering
-        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
-        clusters = dbscan.fit_predict(x_np)
-
-        # Convert clusters to PyTorch tensor
-        clusters_tensor = torch.from_numpy(clusters).to(x.device)
-
-        return clusters_tensor
-
-    def _clustering_loss(self, x):
-        """Compute the clustering loss."""
-        clusters = self.forward(x)
-        # Compute the clustering loss
-        loss = torch.tensor(0.0)
-        return loss
 
 
 class Autoencoder(nn.Module):
@@ -292,6 +261,7 @@ class Autoencoder(nn.Module):
 
     def cross_val(self, n_splits=5):
         """Perform cross-validation on the autoencoder."""
+        torch.backends.cudnn.benchmark = True
         kf = KFold(n_splits=n_splits, shuffle=True)
         val_losses = []
         for fold, (train_index, val_index) in enumerate(kf.split(self.data)):

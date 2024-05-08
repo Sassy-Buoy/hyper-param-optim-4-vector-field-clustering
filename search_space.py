@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+
 def search_space(trial, input_dim, output_dim):
     """ define the hyperparameter search space."""
     num_layers = trial.suggest_int('num_layers', 2, 5)
@@ -37,7 +38,7 @@ def search_space(trial, input_dim, output_dim):
         f'kernel_size_{i}', 2, 24) for i in range(num_layers)]
 
     dilations = [trial.suggest_int(
-        f'dilation_{i}', 1, 3) for i in range(num_layers)]
+        f'dilation_{i}', 1, 5) for i in range(num_layers)]
 
     activations = [trial.suggest_categorical(
         f'activation_{i}', ['nn.Softplus',
