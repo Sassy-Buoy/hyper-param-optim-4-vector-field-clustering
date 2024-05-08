@@ -1,3 +1,5 @@
+import torch.nn as nn
+
 def search_space(trial, input_dim, output_dim):
     """ define the hyperparameter search space."""
     num_layers = trial.suggest_int('num_layers', 2, 5)
@@ -34,15 +36,14 @@ def search_space(trial, input_dim, output_dim):
     kernel_sizes = [trial.suggest_int(
         f'kernel_size_{i}', 2, 24) for i in range(num_layers)]
 
-    dilations = [trial.suggest_categorical(
-        f'dilation_{i}', [1, 2, 4]) for i in range(num_layers)]
-
-    paddings = [x * (y - 1)//2 for x, y in zip(dilations, kernel_sizes)]
+    dilations = [trial.suggest_int(
+        f'dilation_{i}', 1, 3) for i in range(num_layers)]
 
     activations = [trial.suggest_categorical(
         f'activation_{i}', ['nn.Softplus',
                             'nn.SELU',
                             'nn.SiLU',
                             'nn.Tanh']) for i in range(num_layers)]
+    activations = [eval(activation) for activation in activations]
 
-    return [num_layers, poolsize, channels, kernel_sizes, dilations, paddings, activations]
+    return [num_layers, poolsize, channels, kernel_sizes, dilations, activations]
