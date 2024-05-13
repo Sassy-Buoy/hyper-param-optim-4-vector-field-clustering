@@ -14,7 +14,8 @@ class DBSCANLayer(torch.nn.Module):
     def forward(self, x):
         """Forward pass through the DBSCAN layer."""
         # Convert PyTorch tensor to numpy array
-        x_np = x.detach().cpu().numpy()
+        #copy the tensor to the cpu
+        print(x.device)
 
         # Perform DBSCAN clustering
         dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
@@ -46,7 +47,7 @@ def std_distance_centroids(x, clusters):
         cluster_points = x[clusters == cluster]
         centroid = cluster_points.mean(dim=0)
         centroids.append(centroid)
-    
+
     centroids = torch.stack(centroids)
     distances = torch.cdist(centroids, centroids)
     std_distance = distances.std()
@@ -56,5 +57,4 @@ def std_distance_centroids(x, clusters):
 
 def silhouette_score_mod(x, clusters):
     """Compute the silhouette score but modified so that ."""
-
-
+    pass
