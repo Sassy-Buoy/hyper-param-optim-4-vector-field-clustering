@@ -7,7 +7,7 @@ backgroundColor: #fff
 paginate: true
 ---
 
-# ML for Vector Field Analysis
+# Unsupervised Deep clustering for Vector Field Analysis 
 
 ---
 
@@ -164,8 +164,32 @@ stride=1
 ---
 
 ## Latent Space
-
-
+---
+        Layer (type)               Output Shape         Param #
+        Conv2dSame-1           [-1, 11, 80, 80]           2,684
+              SELU-2           [-1, 11, 80, 80]               0
+         MaxPool2d-3  [[-1, 11, 40, 40], [-1, 11, 40, 40]]               0
+        Conv2dSame-4           [-1, 10, 40, 40]          11,010
+          Softplus-5           [-1, 10, 40, 40]               0
+         MaxPool2d-6  [[-1, 10, 20, 20], [-1, 10, 20, 20]]               0
+        Conv2dSame-7           [-1, 12, 20, 20]          20,292
+              Tanh-8           [-1, 12, 20, 20]               0
+         MaxPool2d-9  [[-1, 12, 10, 10], [-1, 12, 10, 10]]               0
+       Conv2dSame-10           [-1, 10, 10, 10]           1,930
+         Softplus-11           [-1, 10, 10, 10]               0
+        MaxPool2d-12  [[-1, 10, 5, 5], [-1, 10, 5, 5]]               0
+       Conv2dSame-13              [-1, 3, 5, 5]           3,633
+             Tanh-14              [-1, 3, 5, 5]               0
+        MaxPool2d-15  [[-1, 3, 1, 1], [-1, 3, 1, 1]]               0
+Total params: 39,549
+Trainable params: 39,549
+Non-trainable params: 0
+----------------------------------------------------------------
+Input size (MB): 0.07
+Forward/backward pass size (MB): 2495.41
+Params size (MB): 0.15
+Estimated Total Size (MB): 2495.63
+----------------------------------------------------------------
 ---
 # Reconstruction
 
@@ -205,7 +229,7 @@ Algorithms : DBSCAN, K-means, Classifier?
 
 ## Deep Clustering
 
-
+![alt text](<Screenshot from 2024-05-15 12-52-22.png>)
 
 ---
 
