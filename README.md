@@ -61,9 +61,18 @@ print("Best parameters:", best_params)
 
 ## Visualization
 
-<img src="obj_trial.png" width="400" alt="Optuna Visualization">
+![Optimization Results](obj_trial.png)
 
 ---
+
+![Hyper_param1](hyper_param1.png)
+
+---
+
+![Hyper_param2](hyper_param2.png)
+
+---
+
 
 ## Use Cases
 
@@ -158,43 +167,72 @@ stride=1
 
 
 ---
+# Reconstruction
+
+![Recon](recon.png)
+
+---
 
 ## Curse of Dimensionality
 
+- Stage 1 :
+    - num_layers, channels, poolsizes
+    - Search space has 
+- Stage 2 :
+    - activations
+    - kernel sizes
+    - strides
+    - dilations
 ---
 
 ## Clustering optimization
 
-Algorithms : DBSCAN, K-means, Ag-clustering
-
----
+Algorithms : DBSCAN, K-means, Classifier?
 
 ## Metrics for clustering
 
 - Silhouette score(SS) modified : Multi-objective optimization where one objective is to maximize the SS and the second is to maximize the number of knife plots that cut through the average SS. 'Cutting' through the average SS means there is atleast one datapoint in each cluster whose SS is greater than the average SS. This ensures that all clusters perform well comparitively and one particularly good cluster does not inflate the SS.
+
+---
+
 - Centroid stand deviation : Minimize the standard deviation of the distance between the centroids of the clusters. This ensures that the centroids are evenly spaced in the latent space.
-- KL divergence
+- KL divergence ?
+- Weigted MSE loss
+
+![WMSE](image.png)
 
 ---
 
 ## Deep Clustering
 
+
+
 ---
 
 ## PyTorch vs TensorFlow
 
+- Ease of Use : Tensorflow > Pytorch
+
+- Presence on forums : Tensorflow has more presence but PyTorch is used more in relevant projects
+
+- Features : Tensorflow has more
+
+- Tweaking and Experimentation : Easier with Pytorch
+
 ---
 
-## Clustering Layer
+- Dynamic vs. Static Graphs :
+    - PyTorch uses dynamic computation graphs -- the graph is built on-the-fly during runtime. This offers more flexibility for debugging and experimentation.
 
-- Mini-batch K-means
-- Classifier
+    - TensorFlow traditionally used static computation graphs(TensorFlow 1.x), where the graph is defined and compiled before execution. TensorFlow 2.x similar to PyTorch
 
+---
 
 ## Open Questions
 
 - Variational Auto encoder?
 - Latent space dimensionality
 - Loss functions - KL divergence, Weighted MSE
+- Classifier
 
 ## 
