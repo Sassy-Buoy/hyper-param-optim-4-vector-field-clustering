@@ -3,7 +3,13 @@ import torch.nn as nn
 
 def search_space(trial, input_dim, output_dim):
     """ define the hyperparameter search space."""
+
+    '''
     num_layers = trial.suggest_int('num_layers', 2, 5)
+    '''
+    num_layers = 5
+
+    '''
     if num_layers == 2:
         poolsize = trial.suggest_categorical('poolsize_2', [[5, 16], [16, 5],
                                                             [8, 10], [10, 8],
@@ -28,11 +34,16 @@ def search_space(trial, input_dim, output_dim):
         poolsize = trial.suggest_categorical(
             'poolsize_5', [[2, 2, 2, 2, 5], [2, 2, 2, 5, 2], [2, 2, 5, 2, 2],
                            [2, 5, 2, 2, 2], [5, 2, 2, 2, 2]])
+    '''
+    poolsize = [2, 2, 2, 2, 5]
 
+    '''
     channels = [input_dim,]
     for i in range(num_layers - 1):
         channels.append(trial.suggest_int(f'channels_{i}', 1, 12))
     channels.append(output_dim)
+    '''
+    channels = [3, 11, 10, 12, 10, 3]
 
     kernel_sizes = [trial.suggest_int(
         f'kernel_size_{i}', 2, 24) for i in range(num_layers)]
@@ -45,6 +56,7 @@ def search_space(trial, input_dim, output_dim):
                             'nn.SELU',
                             'nn.SiLU',
                             'nn.Tanh']) for i in range(num_layers)]
+    
     activations = [eval(activation) for activation in activations]
 
     return [num_layers, poolsize, channels, kernel_sizes, dilations, activations]

@@ -233,8 +233,13 @@ class Autoencoder(nn.Module):
         """Train the autoencoder."""
         self.to(device)
         self.train()
+
+        best_loss = float('inf')
+        epochs_no_improve = 0
+
         for epoch in range(self.epochs):
             running_loss = 0.0
+
             for batch in dataloader:
                 batch = batch.to(device)
                 self.optimizer.zero_grad()
@@ -244,6 +249,16 @@ class Autoencoder(nn.Module):
                 running_loss += loss.item() * batch.size(0)
             epoch_loss = running_loss / len(dataloader)
             print(f"Epoch {epoch+1}/{self.epochs} Loss: {epoch_loss:.4f}")
+
+            # Early stopping
+            if epoch_loss < best_loss:
+                best_loss = epoch_loss
+                epochs_no_improve = 0
+            else:
+                epochs_no_improve += 1
+                if epochs_no_improve == 5:
+                    print(f"Early stopping after {epoch+1} epochs.")
+                    break
 
     def evaluate_model(self, dataloader, device=torch.device('cuda:0')):
         """Evaluate the autoencoder."""
