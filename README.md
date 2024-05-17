@@ -164,6 +164,21 @@ stride=1
 ---
 
 ## Latent Space
+
+![3D](3D.png)
+
+![3D_](3D_.png)
+
+Using, DBSCAN, SS-modified, recon_loss = 0.007! 
+
+---
+
+![2D](2D.png)
+
+![2D_](2D_.png)
+
+Using K-means, std_cen, recon_loss = 0.013
+
 ---
         Layer (type)               Output Shape         Param #
         Conv2dSame-1           [-1, 11, 80, 80]           2,684
