@@ -42,8 +42,9 @@ class KmeansLayer(torch.nn.Module):
 
     def get_loss(self, x, feature_array, labels):
         """Compute the clustering loss."""
-        loss = 1/silhouette_score(feature_array, labels)
-        #loss = std_distance_centroids(feature_array, labels)
+        loss = 0.1/silhouette_score(feature_array, labels)
+        # loss = std_distance_centroids(feature_array, labels)
+        print(loss)
         return loss
 
 
@@ -90,17 +91,3 @@ class Classifier(torch.nn.Module):
     def _get_loss(self, x, labels):
         """Calculate the cross-entropy loss."""
         return torch.nn.functional.cross_entropy(x, labels)
-
-    def _get_weighted_mse_loss(self, x):
-        labels = self.cluster(x)
-        # weight matrix
-        weight_matrix = torch.zeros((x.size(0), x.size(0)))
-        for i in range(x.size(0)):
-            for j in range(x.size(0)):
-                if labels[i] == labels[j]:
-                    weight_matrix[i][j] = np.exp(-np.linalg.norm(
-                        x[i] - x[j])**2)/len(x == labels[i])
-                else:
-                    weight_matrix[i][j] = 0
-        # calculate the weighted mse loss
-        return torch.nn.functional.mse_loss(x, x, weight=weight_matrix, reduction='mean')

@@ -1,6 +1,7 @@
 # defines the Autoencoder class that inherits from PyTorch's nn.Module class
 
 import math
+import numpy as np
 from typing import Tuple, Union
 import torch
 from torch import nn
@@ -137,7 +138,7 @@ class Encoder(nn.Module):
                 x = layer(x)
 
         # check if the output has the correct shape
-        if (x.size()[1], x.size()[2], x.size()[3]) != (3, 1, 1):
+        if (x.size()[1], x.size()[2], x.size()[3]) != (12, 1, 1):
             raise ValueError(
                 "Output shape does not match expected shape." + str(x.size()))
         return x, indices_list
@@ -185,12 +186,13 @@ class Decoder(nn.Module):
 class ClusterAutoencoder(torch.nn.Module):
     """Joint autoencoder that inherits from PyTorch's nn.Module class."""
 
-    def __init__(self, encoder, decoder, cluster, train_set, epochs=100, batch_size=64, learning_rate=1e-3):
+    def __init__(self, encoder, decoder, cluster, train_set, device, epochs=100, batch_size=64, learning_rate=1e-3):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.cluster = cluster
         self.train_set = train_set
+        self.device = device
         self.epochs = epochs
         self.batch_size = batch_size
         self.optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
@@ -206,28 +208,63 @@ class ClusterAutoencoder(torch.nn.Module):
     def _get_reconstruction_loss(self, x, x_hat):
         """Calculate the reconstruction loss."""
         return torch.nn.functional.mse_loss(x_hat, x, reduction='mean')
+    
+    def weighted_mse_loss(self, x, x_hat, labels):
+        """Calculate the weighted mean squared error loss."""
+        # weight matrix
+        weight_matrix = torch.zeros((x.size(0), x.size(0)))
+        x = x.cpu().detach()
+        x_hat = x_hat.cpu().detach()
+        a, b = 0, 0
+        print(x.size)
+        for i in range(x.size(0)):
+            for j in range(x.size(0)):
+                if labels[i] == labels[j]:
+                    weight_matrix[i][j] = np.exp(-np.linalg.norm(
+                        x[i] - x[j])**2)
+                    a += 1
+                else:
+                    weight_matrix[i][j] = weight_matrix[i][j] = (1 - np.exp(-np.linalg.norm(
+                        x[i] - x[j])**2))/len(x != labels[i])
+                    b += 1
+        for i in range(x.size(0)):
+            for j in range(x.size(0)):
+                if labels[i] == labels[j]:
+                    weight_matrix[i][j] = weight_matrix[i][j] /a
+                else:
+                    weight_matrix[i][j] = weight_matrix[i][j] /b
+
+        # calculate the weighted mse loss
+        loss = 0
+        for i in range(x.size(0)):
+            for j in range(x.size(0)):
+                loss += weight_matrix[i][j] * np.linalg.norm(x[i] - x_hat[j])**2
+        return (loss / x.size(0)).to(self.device)
 
     def _get_loss(self, x):
         """Calculate the loss function."""
         x_hat, labels = self(x)
-        reconstruction_loss = self._get_reconstruction_loss(x, x_hat)
-        feature_array = self.encode_data(self.train_set)
-        cluster_loss = self.cluster.get_loss(x, feature_array, labels)
-        print(reconstruction_loss, cluster_loss)
-        return reconstruction_loss + cluster_loss
+        #reconstruction_loss = self._get_reconstruction_loss(x, x_hat)
+        #feature_array = self.encode_data(self.train_set)
+        #cluster_loss = self.cluster.get_loss(x, feature_array, labels)
+        # print(reconstruction_loss, cluster_loss)
+        weighted_mse_loss = self.weighted_mse_loss(x, x_hat, labels)
+        print(weighted_mse_loss)
+        return weighted_mse_loss
 
     def encode_data(self, data):
         """Return the feature array and labels."""
         with torch.no_grad():
+            data = data.to(torch.device(self.device))
             feature_array, _ = self.encoder(data)
             feature_array = feature_array.view(feature_array.size(0), -1)
             feature_array = feature_array.cpu().detach().numpy()
         return feature_array
 
-    def train_model(self, device=torch.device('cuda:0')):
+    def train_model(self):
         """Train the autoencoder."""
         dataloader = torch.utils.data.DataLoader(
-            self.train_set, batch_size=self.batch_size, shuffle=True)
+            self.train_set, batch_size=self.batch_size, shuffle=True, num_workers=12)
         self.train()
         best_loss = float('inf')
         epochs_no_improve = 0
@@ -236,9 +273,10 @@ class ClusterAutoencoder(torch.nn.Module):
             running_loss = 0.0
 
             for batch in dataloader:
-                batch = batch.to(device)
+                batch = batch.to(self.device)
                 self.optimizer.zero_grad()
                 loss = self._get_loss(batch)
+                loss.requires_grad = True
                 loss.backward()
                 self.optimizer.step()
                 running_loss += loss.item() * batch.size(0)
@@ -257,7 +295,7 @@ class ClusterAutoencoder(torch.nn.Module):
 
         return best_loss
 
-    def cross_val(self, n_splits=5, device=torch.device('cuda:0')):
+    def cross_val(self, n_splits=5):
         """Perform cross-validation on the autoencoder."""
         torch.backends.cudnn.benchmark = True
         kf = KFold(n_splits=n_splits, shuffle=True)
@@ -268,9 +306,9 @@ class ClusterAutoencoder(torch.nn.Module):
             val_sampler = torch.utils.data.SubsetRandomSampler(val_index)
 
             train_loader = torch.utils.data.DataLoader(
-                self.train_set, sampler=train_sampler, batch_size=self.batch_size)
+                self.train_set, sampler=train_sampler, batch_size=self.batch_size, num_workers=12)
             val_loader = torch.utils.data.DataLoader(
-                self.train_set, sampler=val_sampler, batch_size=self.batch_size)
+                self.train_set, sampler=val_sampler, batch_size=self.batch_size, num_workers=12)
 
             self.train()
             best_loss = float('inf')
@@ -280,9 +318,10 @@ class ClusterAutoencoder(torch.nn.Module):
                 running_loss = 0.0
 
                 for batch in train_loader:
-                    batch = batch.to(device)
+                    batch = batch.to(self.device)
                     self.optimizer.zero_grad()
                     loss = self._get_loss(batch)
+                    loss.requires_grad = True
                     loss.backward()
                     self.optimizer.step()
                     running_loss += loss.item() * batch.size(0)
@@ -303,7 +342,7 @@ class ClusterAutoencoder(torch.nn.Module):
             total_loss = 0.0
             with torch.no_grad():
                 for batch in val_loader:
-                    batch = batch.to(device)
+                    batch = batch.to(self.device)
                     loss = self._get_loss(batch)
                     total_loss += loss.item() * batch.size(0)
             avg_loss = total_loss / len(val_loader)
@@ -312,15 +351,15 @@ class ClusterAutoencoder(torch.nn.Module):
 
         return val_losses
 
-    def evaluate_model(self, test_set, device=torch.device('cuda:0')):
+    def evaluate_model(self, test_set):
         """Evaluate the autoencoder."""
         dataloader = torch.utils.data.DataLoader(
-            test_set, batch_size=self.batch_size, shuffle=False)
+            test_set, batch_size=self.batch_size, shuffle=False, num_workers=12)
         self.eval()
         total_loss = 0.0
         with torch.no_grad():
             for batch in dataloader:
-                batch = batch.to(device)
+                batch = batch.to(self.device)
                 loss = self._get_loss(batch)
                 total_loss += loss.item() * batch.size(0)
         avg_loss = total_loss / len(dataloader)
