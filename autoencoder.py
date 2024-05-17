@@ -213,6 +213,7 @@ class ClusterAutoencoder(torch.nn.Module):
         reconstruction_loss = self._get_reconstruction_loss(x, x_hat)
         feature_array = self.encode_data(self.train_set)
         cluster_loss = self.cluster.get_loss(x, feature_array, labels)
+        print(reconstruction_loss, cluster_loss)
         return reconstruction_loss + cluster_loss
 
     def encode_data(self, data):
@@ -226,8 +227,7 @@ class ClusterAutoencoder(torch.nn.Module):
     def train_model(self, device=torch.device('cuda:0')):
         """Train the autoencoder."""
         dataloader = torch.utils.data.DataLoader(
-            self.train_set, batch_size=self.batch_size, shuffle=True, num_workers=12)
-        self.to(device)
+            self.train_set, batch_size=self.batch_size, shuffle=True)
         self.train()
         best_loss = float('inf')
         epochs_no_improve = 0
@@ -255,10 +255,11 @@ class ClusterAutoencoder(torch.nn.Module):
                     print(f"Early stopping after {epoch+1} epochs.")
                     break
 
+        return best_loss
+
     def cross_val(self, n_splits=5, device=torch.device('cuda:0')):
         """Perform cross-validation on the autoencoder."""
         torch.backends.cudnn.benchmark = True
-        self.to(device)
         kf = KFold(n_splits=n_splits, shuffle=True)
         val_losses = []
         for fold, (train_index, val_index) in enumerate(kf.split(self.train_set)):
@@ -267,15 +268,9 @@ class ClusterAutoencoder(torch.nn.Module):
             val_sampler = torch.utils.data.SubsetRandomSampler(val_index)
 
             train_loader = torch.utils.data.DataLoader(
-                self.train_set,
-                sampler=train_sampler,
-                batch_size=self.batch_size,
-                num_workers=12)
+                self.train_set, sampler=train_sampler, batch_size=self.batch_size)
             val_loader = torch.utils.data.DataLoader(
-                self.train_set,
-                sampler=val_sampler,
-                batch_size=self.batch_size,
-                num_workers=12)
+                self.train_set, sampler=val_sampler, batch_size=self.batch_size)
 
             self.train()
             best_loss = float('inf')
@@ -285,6 +280,7 @@ class ClusterAutoencoder(torch.nn.Module):
                 running_loss = 0.0
 
                 for batch in train_loader:
+                    batch = batch.to(device)
                     self.optimizer.zero_grad()
                     loss = self._get_loss(batch)
                     loss.backward()
@@ -307,6 +303,7 @@ class ClusterAutoencoder(torch.nn.Module):
             total_loss = 0.0
             with torch.no_grad():
                 for batch in val_loader:
+                    batch = batch.to(device)
                     loss = self._get_loss(batch)
                     total_loss += loss.item() * batch.size(0)
             avg_loss = total_loss / len(val_loader)
@@ -318,8 +315,7 @@ class ClusterAutoencoder(torch.nn.Module):
     def evaluate_model(self, test_set, device=torch.device('cuda:0')):
         """Evaluate the autoencoder."""
         dataloader = torch.utils.data.DataLoader(
-            test_set, batch_size=self.batch_size, shuffle=False, num_workers=12)
-        self.to(device)
+            test_set, batch_size=self.batch_size, shuffle=False)
         self.eval()
         total_loss = 0.0
         with torch.no_grad():

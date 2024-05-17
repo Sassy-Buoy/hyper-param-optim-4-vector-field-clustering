@@ -42,8 +42,8 @@ class KmeansLayer(torch.nn.Module):
 
     def get_loss(self, x, feature_array, labels):
         """Compute the clustering loss."""
-        # loss = 1/silhouette_score(x, labels)
-        loss = std_distance_centroids(feature_array, labels)
+        loss = 1/silhouette_score(feature_array, labels)
+        #loss = std_distance_centroids(feature_array, labels)
         return loss
 
 

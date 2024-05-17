@@ -44,8 +44,8 @@ def search_space(trial, input_dim, output_dim):
 
     channels = [input_dim,]
     for i in range(num_layers - 1):
-        channels.append(trial.suggest_categorical(
-            f'channels_{i}', [2, 4, 8, 16, 32, 64, 128, 256]))
+        channels.append(trial.suggest_int(
+            f'channels_{i}', 2, 16))
     channels.append(output_dim)
 
     # channels = [3, 11, 10, 12, 10, 3]
