@@ -1,6 +1,6 @@
 import pathlib as pl
-import numpy as np
 import json
+import numpy as np
 import discretisedfield as df
 
 
