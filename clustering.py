@@ -1,12 +1,9 @@
+"""The clustering layers and the classifier layer."""
+
 import numpy as np
 import torch
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import silhouette_score
-
-
-def silhouette_score_mod(feature_array, labels):
-    """Compute the silhouette score."""
-    pass
 
 
 def std_distance_centroids(feature_array, labels):

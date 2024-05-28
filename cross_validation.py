@@ -1,23 +1,22 @@
-# USE PATIENCE PARAMETER FOR EARLY STOPPING
+"""train_model, cross_val, and evaluate_model functions for training and evaluating autoencoders."""
+
 import torch
 from sklearn.model_selection import KFold
 
 
-def train_model(model, train_set, batch_size=64, epochs=100, lr=1e-3, device='cuda'):
+def train_model(model, train_set, batch_size=64, epochs=100, lr=1e-3):
     """Train the autoencoder."""
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     dataloader = torch.utils.data.DataLoader(
         train_set, batch_size=batch_size, shuffle=True, num_workers=12)
-    model.to(device)
+    model.to('cuda')
     model.train()
-    best_loss = float('inf')
-    epochs_no_improve = 0
 
     for epoch in range(epochs):
         running_loss = 0.0
 
         for batch in dataloader:
-            batch = batch.to(device)
+            batch = batch.to('cuda')
             optimizer.zero_grad()
             loss = model.get_loss(batch)
             loss.backward()
@@ -27,20 +26,8 @@ def train_model(model, train_set, batch_size=64, epochs=100, lr=1e-3, device='cu
         epoch_loss = running_loss / len(train_set)
         print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
-        # Early stopping
-        if epoch_loss < best_loss:
-            best_loss = epoch_loss
-            epochs_no_improve = 0
-        else:
-            epochs_no_improve += 1
-            if epochs_no_improve == 5:
-                print(f"Early stopping after {epoch+1} epochs.")
-                break
 
-    return best_loss
-
-
-def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3, device='cuda'):
+def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3):
     """Perform cross-validation on the autoencoder."""
     torch.backends.cudnn.benchmark = True
     kf = KFold(n_splits=n_splits, shuffle=True)
@@ -57,17 +44,15 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3, 
         val_loader = torch.utils.data.DataLoader(
             train_set, sampler=val_sampler, batch_size=batch_size, num_workers=12)
 
-        model.to(device)
+        model.to('cuda')
         model.train()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        best_loss = float('inf')
-        epochs_no_improve = 0
 
         for epoch in range(epochs):
             running_loss = 0.0
 
             for batch in train_loader:
-                batch = batch.to(device)
+                batch = batch.to('cuda')
                 optimizer.zero_grad()
                 loss = model.get_loss(batch)
                 loss.backward()
@@ -77,21 +62,11 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3, 
             epoch_loss = running_loss / len(train_sampler)
             print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
-            # Early stopping
-            if epoch_loss < best_loss:
-                best_loss = epoch_loss
-                epochs_no_improve = 0
-            else:
-                epochs_no_improve += 1
-                if epochs_no_improve == 5:
-                    print(f"Early stopping after {epoch+1} epochs.")
-                    break
-
         model.eval()
         total_loss = 0.0
         with torch.no_grad():
             for batch in val_loader:
-                batch = batch.to(device)
+                batch = batch.to('cuda')
                 loss = model.get_loss(batch)
                 total_loss += loss.item() * batch.size(0)
 
@@ -102,16 +77,16 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3, 
     return val_losses
 
 
-def evaluate_model(model, test_set, batch_size=64, device='cuda'):
+def evaluate_model(model, test_set, batch_size=64):
     """Evaluate the autoencoder."""
     dataloader = torch.utils.data.DataLoader(
         test_set, batch_size=batch_size, shuffle=False, num_workers=12)
-    model.to(device)
+    model.to('cuda')
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
         for batch in dataloader:
-            batch = batch.to(device)
+            batch = batch.to('cuda')
             loss = model.get_loss(batch)
             total_loss += loss.item() * batch.size(0)
 
