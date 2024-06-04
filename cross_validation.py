@@ -4,19 +4,19 @@ import torch
 from sklearn.model_selection import KFold
 
 
-def train_model(model, train_set, batch_size=64, epochs=100, lr=1e-3):
+def train_model(model, train_set, device='cuda', lr=1e-3, batch_size=64, epochs=100):
     """Train the autoencoder."""
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     dataloader = torch.utils.data.DataLoader(
         train_set, batch_size=batch_size, shuffle=True, num_workers=12)
-    model.to('cuda')
+    model.to(device)
     model.train()
 
     for epoch in range(epochs):
         running_loss = 0.0
 
         for batch in dataloader:
-            batch = batch.to('cuda')
+            batch = batch.to(device)
             optimizer.zero_grad()
             loss = model.get_loss(batch)
             loss.backward()
@@ -24,10 +24,10 @@ def train_model(model, train_set, batch_size=64, epochs=100, lr=1e-3):
             running_loss += loss.item() * batch.size(0)
 
         epoch_loss = running_loss / len(train_set)
-        print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
+        #print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
 
-def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3):
+def cross_val(model, train_set, n_splits=5, device='cuda', lr=1e-3, batch_size=64, epochs=100):
     """Perform cross-validation on the autoencoder."""
     torch.backends.cudnn.benchmark = True
     kf = KFold(n_splits=n_splits, shuffle=True)
@@ -44,7 +44,7 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3):
         val_loader = torch.utils.data.DataLoader(
             train_set, sampler=val_sampler, batch_size=batch_size, num_workers=12)
 
-        model.to('cuda')
+        model.to(device)
         model.train()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -52,7 +52,7 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3):
             running_loss = 0.0
 
             for batch in train_loader:
-                batch = batch.to('cuda')
+                batch = batch.to(device)
                 optimizer.zero_grad()
                 loss = model.get_loss(batch)
                 loss.backward()
@@ -60,13 +60,13 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3):
                 running_loss += loss.item() * batch.size(0)
 
             epoch_loss = running_loss / len(train_sampler)
-            print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
+            #print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
         model.eval()
         total_loss = 0.0
         with torch.no_grad():
             for batch in val_loader:
-                batch = batch.to('cuda')
+                batch = batch.to(device)
                 loss = model.get_loss(batch)
                 total_loss += loss.item() * batch.size(0)
 
@@ -74,19 +74,20 @@ def cross_val(model, train_set, n_splits=5, batch_size=64, epochs=100, lr=1e-3):
         print(f"Validation Loss: {avg_loss:.4f}")
         val_losses.append(avg_loss)
 
+    print("fin.")
     return val_losses
 
 
-def evaluate_model(model, test_set, batch_size=64):
+def evaluate_model(model, test_set, device='cuda', batch_size=64):
     """Evaluate the autoencoder."""
     dataloader = torch.utils.data.DataLoader(
         test_set, batch_size=batch_size, shuffle=False, num_workers=12)
-    model.to('cuda')
+    model.to(device)
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
         for batch in dataloader:
-            batch = batch.to('cuda')
+            batch = batch.to(device)
             loss = model.get_loss(batch)
             total_loss += loss.item() * batch.size(0)
 

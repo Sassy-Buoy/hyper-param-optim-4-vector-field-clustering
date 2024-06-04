@@ -155,7 +155,7 @@ stride=1
 
 - paddings
 
-```python
+cpython
 "same"
 ```
 
@@ -269,9 +269,18 @@ Algorithms : DBSCAN, K-means, Classifier?
 
 ## Open Questions
 
-- Variational Auto encoder?
 - Latent space dimensionality
 - Loss functions - KL divergence, Weighted MSE
 - Classifier
 
-## 
+## Variational AutoEncoder
+
+- Encoder
+```python
+        # For VAE: layers to output mean and log variance
+        self.fc_mu = nn.Linear(channels[-1], channels[-1])
+        self.fc_logvar = nn.Linear(channels[-1], channels[-1])
+```
+
+- Decoder : pretty much the same.
+---
