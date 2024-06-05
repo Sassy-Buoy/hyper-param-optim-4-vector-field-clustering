@@ -26,7 +26,7 @@ class Encoder(nn.Module):
                 dilation=dilations[i]))
             self.layers.append(activations[i]())
             self.layers.append(nn.MaxPool2d(
-                poolsize[i], ceil_mode=True, return_indices=True))
+                poolsize[i], ceil_mode=True))#, return_indices=True))
 
         # For VAE: layers to output mean and log variance
         self.fc_mu = nn.Linear(channels[-1], channels[-1])
@@ -34,20 +34,21 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         """Forward pass through the encoder."""
-        indices_list = []
+        #indices_list = []
         for layer in self.layers:
-            if isinstance(layer, nn.MaxPool2d):
+            x = layer(x)
+            """if isinstance(layer, nn.MaxPool2d):
                 x, indices = layer(x)
                 indices_list.append(indices)
             else:
-                x = layer(x)
+                x = layer(x)"""
 
         # Flatten and pass through the linear layers
         x = torch.flatten(x, start_dim=1)
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
 
-        return mu, logvar, indices_list
+        return mu, logvar#, indices_list
 
 
 class Decoder(nn.Module):
@@ -69,20 +70,22 @@ class Decoder(nn.Module):
                     padding=layer.padding,
                     dilation=layer.dilation))
             elif isinstance(layer, nn.MaxPool2d):
-                self.layers.append(nn.MaxUnpool2d(layer.kernel_size,
+                self.layers.append(nn.Upsample(scale_factor=layer.kernel_size))
+                """self.layers.append(nn.MaxUnpool2d(layer.kernel_size,
                                                   layer.stride,
-                                                  layer.padding))
+                                                  layer.padding))"""
             else:
                 self.layers.append(layer)
 
-    def forward(self, x, indices_list):
+    def forward(self, x):#, indices_list):
         """Forward pass through the decoder."""
         x = x.view(x.size(0), -1, 1, 1)
         for layer in self.layers:
-            if isinstance(layer, nn.MaxUnpool2d):
+            x = layer(x)
+            """if isinstance(layer, nn.MaxUnpool2d):
                 x = layer(x, indices_list.pop())
             else:
-                x = layer(x)
+                x = layer(x)"""
 
         return x
 
@@ -103,9 +106,10 @@ class VarAutoEncoder(nn.Module):
 
     def forward(self, x):
         """Forward pass through the ClusterAutoencoder."""
-        mu, logvar, indices_list = self.encoder(x)
+        mu, logvar = self.encoder(x)
+        #mu, logvar, indices_list = self.encoder(x)
         z = self.reparameterize(mu, logvar)
-        x_reconstructed = self.decoder(z, indices_list)
+        x_reconstructed = self.decoder(z)#, indices_list)
         return x_reconstructed, mu, logvar
 
     def get_reconstruction_loss(self, x, x_reconstructed):

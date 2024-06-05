@@ -44,8 +44,8 @@ def objective(trial):
 
 study = optuna.create_study(direction='minimize',
                             pruner=optuna.pruners.HyperbandPruner(),
-                            study_name='vae',
+                            study_name='vae_us',
                             storage='sqlite:///vae.db',
                             load_if_exists=True)
 
-study.optimize(objective, n_trials=10)
+study.optimize(objective, n_trials=20)
