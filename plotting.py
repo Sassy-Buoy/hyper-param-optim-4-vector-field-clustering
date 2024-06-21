@@ -39,6 +39,7 @@ def path_as_title(
     """
     return "/".join(pathlib.Path(filepath).parts[-3:-1])
 
+
 def plot_one_field(axs: plt.Axes, field: df.Field) -> plt.Axes:
     """Default plotting function for example plots.
 
@@ -61,8 +62,10 @@ def plot_one_field(axs: plt.Axes, field: df.Field) -> plt.Axes:
         axis with example plot.
     """
     field.orientation.z.sel("z").mpl.scalar(ax=axs, clim=(-1, 1))
-    field.orientation.sel("z").resample(n=(20, 20)).mpl.vector(ax=axs, use_color=False)
+    field.orientation.sel("z").resample(
+        n=(20, 20)).mpl.vector(ax=axs, use_color=False)
     return axs
+
 
 def plot_all_examples(
     class_dictionary: dict[str, list[str]],
@@ -123,6 +126,7 @@ def plot_all_examples(
             plot_field=plot_field,
             title_builder=title_builder,
         )
+
 
 def plot_class_examples(
     class_dictionary: dict[str, list[str]],

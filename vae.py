@@ -37,11 +37,6 @@ class Encoder(nn.Module):
         #indices_list = []
         for layer in self.layers:
             x = layer(x)
-            """if isinstance(layer, nn.MaxPool2d):
-                x, indices = layer(x)
-                indices_list.append(indices)
-            else:
-                x = layer(x)"""
 
         # Flatten and pass through the linear layers
         x = torch.flatten(x, start_dim=1)
@@ -71,9 +66,6 @@ class Decoder(nn.Module):
                     dilation=layer.dilation))
             elif isinstance(layer, nn.MaxPool2d):
                 self.layers.append(nn.Upsample(scale_factor=layer.kernel_size))
-                """self.layers.append(nn.MaxUnpool2d(layer.kernel_size,
-                                                  layer.stride,
-                                                  layer.padding))"""
             else:
                 self.layers.append(layer)
 
@@ -82,10 +74,6 @@ class Decoder(nn.Module):
         x = x.view(x.size(0), -1, 1, 1)
         for layer in self.layers:
             x = layer(x)
-            """if isinstance(layer, nn.MaxUnpool2d):
-                x = layer(x, indices_list.pop())
-            else:
-                x = layer(x)"""
 
         return x
 

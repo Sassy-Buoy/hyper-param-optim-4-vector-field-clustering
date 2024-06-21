@@ -1,3 +1,6 @@
+""" Load the data from the simulations. 
+"""
+
 import pathlib as pl
 import json
 import numpy as np
