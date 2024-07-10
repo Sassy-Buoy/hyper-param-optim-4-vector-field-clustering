@@ -1,4 +1,4 @@
-"""Variational Autoencoder (VAE) implementation in PyTorch."""
+"""Variational Autoencoder (VAE) """
 
 import torch
 from torch import nn
@@ -16,6 +16,7 @@ class Encoder(nn.Module):
                  dilations,
                  activations):
         super().__init__()
+        self.channels = channels
         self.layers = nn.ModuleList()
         for i in range(num_layers):
             self.layers.append(Conv2dSame(
@@ -26,7 +27,7 @@ class Encoder(nn.Module):
                 dilation=dilations[i]))
             self.layers.append(activations[i]())
             self.layers.append(nn.MaxPool2d(
-                poolsize[i], ceil_mode=True))#, return_indices=True))
+                poolsize[i], ceil_mode=True))  # , return_indices=True))
 
         # For VAE: layers to output mean and log variance
         self.fc_mu = nn.Linear(channels[-1], channels[-1])
@@ -34,7 +35,7 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         """Forward pass through the encoder."""
-        #indices_list = []
+        # indices_list = []
         for layer in self.layers:
             x = layer(x)
 
@@ -43,7 +44,7 @@ class Encoder(nn.Module):
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
 
-        return mu, logvar#, indices_list
+        return mu, logvar  # , indices_list
 
 
 class Decoder(nn.Module):
@@ -69,7 +70,7 @@ class Decoder(nn.Module):
             else:
                 self.layers.append(layer)
 
-    def forward(self, x):#, indices_list):
+    def forward(self, x):  # , indices_list):
         """Forward pass through the decoder."""
         x = x.view(x.size(0), -1, 1, 1)
         for layer in self.layers:
@@ -95,23 +96,77 @@ class VarAutoEncoder(nn.Module):
     def forward(self, x):
         """Forward pass through the ClusterAutoencoder."""
         mu, logvar = self.encoder(x)
-        #mu, logvar, indices_list = self.encoder(x)
         z = self.reparameterize(mu, logvar)
-        x_reconstructed = self.decoder(z)#, indices_list)
-        return x_reconstructed, mu, logvar
+        x_recon = self.decoder(z)
+        return x_recon, mu, logvar
 
-    def get_reconstruction_loss(self, x, x_reconstructed):
+    def get_reconstruction_loss(self, x, x_recon):
         """Compute the reconstruction loss."""
-        return torch.mean((x - x_reconstructed) ** 2)
+        return torch.mean((x - x_recon) ** 2)
 
     def get_kl_divergence(self, mu, logvar):
         """Compute the Kullback-Leibler divergence."""
-        #kl_loss = nn.KLDivLoss(reduction='sum')
+        # kl_loss = nn.KLDivLoss(reduction='sum')
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     def get_loss(self, x):
         """Compute the VAE loss."""
-        x_reconstructed, mu, logvar = self.forward(x)
-        reconstruction_loss = self.get_reconstruction_loss(x, x_reconstructed)
+        x_recon, mu, logvar = self.forward(x)
+        reconstruction_loss = self.get_reconstruction_loss(x, x_recon)
+        kl_divergence = self.get_kl_divergence(mu, logvar)
+        return reconstruction_loss + kl_divergence
+
+
+class VaDE(nn.Module):
+    """ Variational Deep Embedding (VaDE) """
+
+    def __init__(self, encoder, decoder, num_classes):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.num_classes = num_classes
+        self.fc_mu = nn.Linear(encoder.channels[-1], num_classes)
+        self.fc_logvar = nn.Linear(encoder.channels[-1], num_classes)
+        self.fc_softmax = nn.Linear(num_classes, num_classes)
+
+    def reparameterize(self, mu, logvar):
+        """ Reparameterization trick """
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def forward(self, x):
+        """ Forward pass through the
+        encoder, decoder, and softmax layer. """
+        mu, logvar = self.encoder(x)
+        z = self.reparameterize(mu, logvar)
+        x_recon = self.decoder(z)
+        y = self.fc_softmax(z)
+        return x_recon, y, mu, logvar
+
+    def classify(self, x):
+        """ Classify input data """
+        mu, logvar = self.encoder(x)
+        z = self.reparameterize(mu, logvar)
+        y = self.fc_softmax(z)
+        return y
+
+    def predict(self, x):
+        """ Predict class labels """
+        y = self.classify(x)
+        return torch.argmax(y, dim=1)
+
+    def get_reconstruction_loss(self, x, x_recon):
+        """Compute the reconstruction loss."""
+        return torch.mean((x - x_recon) ** 2)
+
+    def get_kl_divergence(self, mu, logvar):
+        """Compute the Kullback-Leibler divergence."""
+        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+    def get_loss(self, x):
+        """Compute the VaDE loss."""
+        x_recon, _, mu, logvar = self.forward(x)
+        reconstruction_loss = self.get_reconstruction_loss(x, x_recon)
         kl_divergence = self.get_kl_divergence(mu, logvar)
         return reconstruction_loss + kl_divergence

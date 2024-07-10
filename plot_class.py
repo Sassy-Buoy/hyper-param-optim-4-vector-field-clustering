@@ -1,10 +1,14 @@
+""" plot_class
+"""
+
+from load_data import parameters_dict
+
+import plotly.graph_objs as go
+import plotly.express as ptx
+
+
 def plot_class(class_dict):
-
-    import plotly.graph_objs as go
-    import plotly.express as ptx
-
-    from load_data import parameters_dict
-
+    """ plot_class """
     traces = list()
     for class_id, colour in zip(class_dict, ptx.colors.qualitative.Dark24):
         traces.append(
