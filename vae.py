@@ -118,43 +118,50 @@ class VarAutoEncoder(nn.Module):
 
 
 class VaDE(nn.Module):
-    """ Variational Deep Embedding (VaDE) """
+    """Variational Deep Embedding that inherits from PyTorch's nn.Module class."""
 
-    def __init__(self, encoder, decoder, num_classes):
+    def __init__(self, encoder, decoder, n_clusters, latent_dim):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
-        self.num_classes = num_classes
-        self.fc_mu = nn.Linear(encoder.channels[-1], num_classes)
-        self.fc_logvar = nn.Linear(encoder.channels[-1], num_classes)
-        self.fc_softmax = nn.Linear(num_classes, num_classes)
+        self.n_clusters = n_clusters
+        self.latent_dim = latent_dim
+
+        # Initialize GMM parameters
+        self.pi_ = nn.Parameter(torch.ones(
+            n_clusters) / n_clusters, requires_grad=True)
+        self.mu_c = nn.Parameter(torch.randn(
+            n_clusters, latent_dim), requires_grad=True)
+        self.logvar_c = nn.Parameter(torch.randn(
+            n_clusters, latent_dim), requires_grad=True)
 
     def reparameterize(self, mu, logvar):
-        """ Reparameterization trick """
+        """Reparameterization trick to sample from N(mu, var) from N(0,1)."""
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
 
+    def compute_q_c_z(self, z):
+        """Compute the responsibility of each cluster for the latent variable z."""
+        z_expand = z.unsqueeze(1).expand(-1, self.n_clusters, -1)
+        mu_c_expand = self.mu_c.unsqueeze(0).expand(z.size(0), -1, -1)
+        logvar_c_expand = self.logvar_c.unsqueeze(0).expand(z.size(0), -1, -1)
+        pi_expand = self.pi_.unsqueeze(0).expand(z.size(0), -1)
+
+        log_p_z_c = -0.5 * torch.sum(logvar_c_expand + (z_expand -
+                                     mu_c_expand) ** 2 / torch.exp(logvar_c_expand), dim=2)
+        log_p_z_c += torch.log(pi_expand)
+        log_p_z = torch.logsumexp(log_p_z_c, dim=1, keepdim=True)
+        q_c_z = torch.exp(log_p_z_c - log_p_z)
+        return q_c_z
+
     def forward(self, x):
-        """ Forward pass through the
-        encoder, decoder, and softmax layer. """
+        """Forward pass through the VaDE."""
         mu, logvar = self.encoder(x)
         z = self.reparameterize(mu, logvar)
         x_recon = self.decoder(z)
-        y = self.fc_softmax(z)
-        return x_recon, y, mu, logvar
-
-    def classify(self, x):
-        """ Classify input data """
-        mu, logvar = self.encoder(x)
-        z = self.reparameterize(mu, logvar)
-        y = self.fc_softmax(z)
-        return y
-
-    def predict(self, x):
-        """ Predict class labels """
-        y = self.classify(x)
-        return torch.argmax(y, dim=1)
+        q_c_z = self.compute_q_c_z(z)
+        return x_recon, mu, logvar, q_c_z, z
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the reconstruction loss."""
@@ -164,9 +171,24 @@ class VaDE(nn.Module):
         """Compute the Kullback-Leibler divergence."""
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
+    def get_clustering_loss(self, q_c_z, z):
+        """Compute the clustering loss using the GMM log-likelihood."""
+        z_expand = z.unsqueeze(1).expand(-1, self.n_clusters, -1)
+        mu_c_expand = self.mu_c.unsqueeze(0).expand(z.size(0), -1, -1)
+        logvar_c_expand = self.logvar_c.unsqueeze(0).expand(z.size(0), -1, -1)
+        pi_expand = self.pi_.unsqueeze(0).expand(z.size(0), -1)
+
+        log_p_z_c = -0.5 * torch.sum(logvar_c_expand + (z_expand -
+                                     mu_c_expand) ** 2 / torch.exp(logvar_c_expand), dim=2)
+        log_p_z_c += torch.log(pi_expand)
+        log_q_c_z = torch.log(q_c_z)
+        clustering_loss = torch.sum(q_c_z * (log_q_c_z - log_p_z_c))
+        return clustering_loss
+
     def get_loss(self, x):
         """Compute the VaDE loss."""
-        x_recon, _, mu, logvar = self.forward(x)
+        x_recon, mu, logvar, q_c_z, z = self.forward(x)
         reconstruction_loss = self.get_reconstruction_loss(x, x_recon)
         kl_divergence = self.get_kl_divergence(mu, logvar)
-        return reconstruction_loss + kl_divergence
+        clustering_loss = self.get_clustering_loss(q_c_z, z)
+        return reconstruction_loss + kl_divergence + clustering_loss
