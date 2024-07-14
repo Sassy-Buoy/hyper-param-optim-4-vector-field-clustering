@@ -2,6 +2,7 @@
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 from conv2dsame import Conv2dSame
 
 
@@ -27,7 +28,7 @@ class Encoder(nn.Module):
                 dilation=dilations[i]))
             self.layers.append(activations[i]())
             self.layers.append(nn.MaxPool2d(
-                poolsize[i], ceil_mode=True))  # , return_indices=True))
+                poolsize[i], ceil_mode=True))
 
         # For VAE: layers to output mean and log variance
         self.fc_mu = nn.Linear(channels[-1], channels[-1])
@@ -44,7 +45,7 @@ class Encoder(nn.Module):
         mu = self.fc_mu(x)
         logvar = self.fc_logvar(x)
 
-        return mu, logvar  # , indices_list
+        return mu, logvar
 
 
 class Decoder(nn.Module):
@@ -70,7 +71,7 @@ class Decoder(nn.Module):
             else:
                 self.layers.append(layer)
 
-    def forward(self, x):  # , indices_list):
+    def forward(self, x):
         """Forward pass through the decoder."""
         x = x.view(x.size(0), -1, 1, 1)
         for layer in self.layers:
@@ -106,34 +107,31 @@ class VarAutoEncoder(nn.Module):
 
     def get_kl_divergence(self, mu, logvar):
         """Compute the Kullback-Leibler divergence."""
-        # kl_loss = nn.KLDivLoss(reduction='sum')
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
     def get_loss(self, x):
         """Compute the VAE loss."""
         x_recon, mu, logvar = self.forward(x)
-        reconstruction_loss = self.get_reconstruction_loss(x, x_recon)
-        kl_divergence = self.get_kl_divergence(mu, logvar)
-        return reconstruction_loss + kl_divergence
+        return self.get_reconstruction_loss(x, x_recon) + self.get_kl_divergence(mu, logvar)
 
 
 class VaDE(nn.Module):
     """Variational Deep Embedding that inherits from PyTorch's nn.Module class."""
 
-    def __init__(self, encoder, decoder, n_clusters, latent_dim):
+    def __init__(self, encoder, decoder, n_clusters):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.n_clusters = n_clusters
-        self.latent_dim = latent_dim
+        self.latent_dim = encoder.channels[-1]
 
-        # Initialize GMM parameters
-        self.pi_ = nn.Parameter(torch.ones(
-            n_clusters) / n_clusters, requires_grad=True)
-        self.mu_c = nn.Parameter(torch.randn(
-            n_clusters, latent_dim), requires_grad=True)
-        self.logvar_c = nn.Parameter(torch.randn(
-            n_clusters, latent_dim), requires_grad=True)
+        # GMM parameters
+        self.pi_prior = nn.Parameter(torch.ones(
+            n_clusters) / n_clusters, requires_grad=False)
+        self.mu_prior = nn.Parameter(torch.randn(
+            n_clusters, self.latent_dim), requires_grad=True)
+        self.logvar_prior = nn.Parameter(torch.randn(
+            n_clusters, self.latent_dim), requires_grad=True)
 
     def reparameterize(self, mu, logvar):
         """Reparameterization trick to sample from N(mu, var) from N(0,1)."""
@@ -141,54 +139,64 @@ class VaDE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def compute_q_c_z(self, z):
-        """Compute the responsibility of each cluster for the latent variable z."""
-        z_expand = z.unsqueeze(1).expand(-1, self.n_clusters, -1)
-        mu_c_expand = self.mu_c.unsqueeze(0).expand(z.size(0), -1, -1)
-        logvar_c_expand = self.logvar_c.unsqueeze(0).expand(z.size(0), -1, -1)
-        pi_expand = self.pi_.unsqueeze(0).expand(z.size(0), -1)
-
-        log_p_z_c = -0.5 * torch.sum(logvar_c_expand + (z_expand -
-                                     mu_c_expand) ** 2 / torch.exp(logvar_c_expand), dim=2)
-        log_p_z_c += torch.log(pi_expand)
-        log_p_z = torch.logsumexp(log_p_z_c, dim=1, keepdim=True)
-        q_c_z = torch.exp(log_p_z_c - log_p_z)
-        return q_c_z
-
     def forward(self, x):
         """Forward pass through the VaDE."""
+        # Encode
         mu, logvar = self.encoder(x)
-        z = self.reparameterize(mu, logvar)
+        std = torch.exp(0.5 * logvar)
+        z = mu + std * torch.randn_like(std)
+
+        # Decode
         x_recon = self.decoder(z)
-        q_c_z = self.compute_q_c_z(z)
-        return x_recon, mu, logvar, q_c_z, z
+
+        # GMM responsibilities (q(y|x))
+        z_expand = z.unsqueeze(1)  # (batch_size, 1, latent_dim)
+        mu_expand = self.mu_prior.unsqueeze(0)  # (1, n_clusters, latent_dim)
+        logvar_expand = self.logvar_prior.unsqueeze(
+            0)  # (1, n_clusters, latent_dim)
+        pi_expand = self.pi_prior.unsqueeze(0)  # (1, n_clusters)
+
+        log_p_z_given_c = -0.5 * \
+            (logvar_expand + torch.pow(z_expand -
+             mu_expand, 2) / torch.exp(logvar_expand))
+        # (batch_size, n_clusters)
+        log_p_z_given_c = torch.sum(log_p_z_given_c, dim=2)
+        log_p_z_given_c += torch.log(pi_expand)  # (batch_size, n_clusters)
+
+        q_y_given_x = F.softmax(log_p_z_given_c, dim=1)
+
+        return x_recon, z, q_y_given_x
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the reconstruction loss."""
         return torch.mean((x - x_recon) ** 2)
 
-    def get_kl_divergence(self, mu, logvar):
+    def get_kl_divergence(self, z, q_y_given_x):
         """Compute the Kullback-Leibler divergence."""
-        return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+        # KL divergence between q(z|x) and p(z|c)
+        z_expand = z.unsqueeze(1)  # (batch_size, 1, latent_dim)
+        mu_expand = self.mu_prior.unsqueeze(0)  # (1, n_clusters, latent_dim)
+        logvar_expand = self.logvar_prior.unsqueeze(
+            0)  # (1, n_clusters, latent_dim)
 
-    def get_clustering_loss(self, q_c_z, z):
-        """Compute the clustering loss using the GMM log-likelihood."""
-        z_expand = z.unsqueeze(1).expand(-1, self.n_clusters, -1)
-        mu_c_expand = self.mu_c.unsqueeze(0).expand(z.size(0), -1, -1)
-        logvar_c_expand = self.logvar_c.unsqueeze(0).expand(z.size(0), -1, -1)
-        pi_expand = self.pi_.unsqueeze(0).expand(z.size(0), -1)
+        log_p_z_given_c = -0.5 * \
+            (logvar_expand + torch.pow(z_expand -
+             mu_expand, 2) / torch.exp(logvar_expand))
+        # (batch_size, n_clusters)
+        log_p_z_given_c = torch.sum(log_p_z_given_c, dim=2)
+        log_p_z_given_c += torch.log(self.pi_prior)  # (n_clusters)
 
-        log_p_z_c = -0.5 * torch.sum(logvar_c_expand + (z_expand -
-                                     mu_c_expand) ** 2 / torch.exp(logvar_c_expand), dim=2)
-        log_p_z_c += torch.log(pi_expand)
-        log_q_c_z = torch.log(q_c_z)
-        clustering_loss = torch.sum(q_c_z * (log_q_c_z - log_p_z_c))
-        return clustering_loss
+        log_q_y_given_x = torch.log(q_y_given_x)
+        kl_div = torch.sum(
+            q_y_given_x * (log_q_y_given_x - log_p_z_given_c), dim=1)
+
+        # KL divergence between q(y|x) and p(y)
+        log_q_y_given_x = torch.log(q_y_given_x + 1e-10)
+        kl_div_y = torch.sum(q_y_given_x * log_q_y_given_x, dim=1)
+
+        return torch.sum(kl_div) + torch.sum(kl_div_y)
 
     def get_loss(self, x):
-        """Compute the VaDE loss."""
-        x_recon, mu, logvar, q_c_z, z = self.forward(x)
-        reconstruction_loss = self.get_reconstruction_loss(x, x_recon)
-        kl_divergence = self.get_kl_divergence(mu, logvar)
-        clustering_loss = self.get_clustering_loss(q_c_z, z)
-        return reconstruction_loss + kl_divergence + clustering_loss
+        """Compute the VaDE loss function."""
+        x_recon, z, q_y_given_x = self.forward(x)
+        return self.get_reconstruction_loss(x, x_recon) + self.get_kl_divergence(z, q_y_given_x)
