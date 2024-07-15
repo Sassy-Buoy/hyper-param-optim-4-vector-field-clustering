@@ -4,7 +4,7 @@ import torch
 from sklearn.model_selection import KFold
 
 
-def train_model(model, train_set, device='cuda', lr=1e-3, batch_size=64, epochs=100):
+def train_model(model, train_set, lr, batch_size, epochs, device='cuda'):
     """Train the autoencoder."""
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     dataloader = torch.utils.data.DataLoader(
@@ -27,7 +27,7 @@ def train_model(model, train_set, device='cuda', lr=1e-3, batch_size=64, epochs=
         print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
 
-def cross_val(model, train_set, n_splits=5, device='cuda', lr=1e-3, batch_size=64, epochs=100):
+def cross_val(model, train_set, lr, batch_size, epochs, n_splits=5, device='cuda'):
     """Perform cross-validation on the autoencoder."""
     torch.backends.cudnn.benchmark = True
     kf = KFold(n_splits=n_splits, shuffle=True)
@@ -78,7 +78,7 @@ def cross_val(model, train_set, n_splits=5, device='cuda', lr=1e-3, batch_size=6
     return val_losses
 
 
-def evaluate_model(model, test_set, device='cuda', batch_size=64):
+def evaluate_model(model, test_set, batch_size, device='cuda'):
     """Evaluate the autoencoder."""
     dataloader = torch.utils.data.DataLoader(
         test_set, batch_size=batch_size, shuffle=False, num_workers=12)

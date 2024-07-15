@@ -67,10 +67,4 @@ def search_space(trial, input_dim, output_dim):
 
     activations = [eval(activation) for activation in activations]
 
-    lr = trial.suggest_loguniform('lr', 1e-5, 1e-2)
-
-    batch_size = trial.suggest_int('batch_size', 32, 64, 96, 128)
-
-    epochs = trial.suggest_int('epochs', 50, 100, 150, 200)
-
-    return num_layers, poolsize, channels, kernel_sizes, dilations, activations, lr, batch_size, epochs
+    return num_layers, poolsize, channels, kernel_sizes, dilations, activations

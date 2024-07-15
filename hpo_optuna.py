@@ -23,10 +23,12 @@ def objective(trial):
     """Objective function for hyperparameter optimization."""
 
     lr = trial.suggest_loguniform('lr', 1e-5, 1e-2)
+    batch_size = trial.suggest_int('batch_size', 32, 64, 96, 128)
+    epochs = trial.suggest_int('epochs', 50, 100, 150, 200)
 
     # search space
     num_layers, poolsize, channels, kernel_sizes, dilations, activations = search_space(
-        trial, 3, 3)
+        trial, input_dim=3, output_dim=3)
 
     # define model
     encoder = Encoder(num_layers, poolsize, channels,
@@ -35,8 +37,8 @@ def objective(trial):
     model = VaDE(encoder, decoder, 30)
 
     # train model with k-fold cross validation
-    val_losses = cross_val(model, train_data, n_splits=5,
-                           device='cuda', lr=lr, epochs=100, batch_size=32)
+    val_losses = cross_val(model, train_data, lr=lr, batch_size=batch_size,
+                           epochs=epochs, n_splits=5, device='cuda')
     loss = sum(val_losses) / len(val_losses)
 
     return loss
