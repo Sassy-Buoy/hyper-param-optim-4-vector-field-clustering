@@ -9,7 +9,6 @@ from search_space import search_space
 from vae import Encoder, Decoder, VaDE  # VarAutoEncoder
 from cross_validation import cross_val
 
-
 # reshape from batch, height, width, channel, to batch, channel, height, width
 sim_arr_transformed = sim_arr.reshape(
     (sim_arr.shape[0], sim_arr.shape[3], sim_arr.shape[1], sim_arr.shape[2]))
@@ -31,23 +30,41 @@ def objective(trial):
         trial, input_dim=3, output_dim=3)
 
     # define model
-    encoder = Encoder(num_layers, poolsize, channels,
-                      kernel_sizes, dilations, activations)
+    encoder_ = Encoder(num_layers, poolsize, channels,
+                       kernel_sizes, dilations, activations)
+    decoder_ = Decoder(encoder_)
+    model_ = VaDE(encoder_, decoder_, 30)
+
+    # train model with k-fold cross validation
+    val_losses_ = cross_val(model_, train_data, lr=lr, batch_size=batch_size,
+                            epochs=epochs, n_splits=5, device='cuda')
+    loss_ = sum(val_losses_) / len(val_losses_)
+
+    return loss_
+
+
+if __name__ == '__main__':
+    study = optuna.create_study(direction='minimize',
+                                pruner=optuna.pruners.HyperbandPruner(),
+                                study_name='vade',
+                                storage='sqlite:///optuna.db',
+                                load_if_exists=True)
+
+    study.optimize(objective, n_trials=1)
+
+    best_trial = study.best_trial
+
+    encoder = Encoder(*search_space(best_trial, 3, 10))
     decoder = Decoder(encoder)
     model = VaDE(encoder, decoder, 30)
 
     # train model with k-fold cross validation
-    val_losses = cross_val(model, train_data, lr=lr, batch_size=batch_size,
-                           epochs=epochs, n_splits=5, device='cuda')
+    val_losses = cross_val(model, train_data,
+                           lr=best_trial.params['lr'],
+                           batch_size=best_trial.params['batch_size'],
+                           epochs=best_trial.params['epochs'],
+                           n_splits=5, device='cuda')
     loss = sum(val_losses) / len(val_losses)
 
-    return loss
-
-
-study = optuna.create_study(direction='minimize',
-                            pruner=optuna.pruners.HyperbandPruner(),
-                            study_name='vade',
-                            storage='sqlite:///vae.db',
-                            load_if_exists=True)
-
-study.optimize(objective, n_trials=1)
+    # save best model
+    torch.save(model.state_dict(), 'best_vade.pth')

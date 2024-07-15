@@ -60,7 +60,7 @@ def cross_val(model, train_set, lr, batch_size, epochs, n_splits=5, device='cuda
                 running_loss += loss.item() * batch.size(0)
 
             epoch_loss = running_loss / len(train_sampler)
-            # print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
+            print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
         model.eval()
         total_loss = 0.0
