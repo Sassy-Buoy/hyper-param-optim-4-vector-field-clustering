@@ -169,6 +169,7 @@ class VaDE(nn.Module):
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the reconstruction loss."""
+        print("recon_loss : ", torch.mean((x - x_recon) ** 2))
         return torch.mean((x - x_recon) ** 2)
 
     def get_kl_divergence(self, z, q_y_given_x):
@@ -194,9 +195,15 @@ class VaDE(nn.Module):
         log_q_y_given_x = torch.log(q_y_given_x + 1e-10)
         kl_div_y = torch.sum(q_y_given_x * log_q_y_given_x, dim=1)
 
+        print("kl_div : ", torch.sum(kl_div) + torch.sum(kl_div_y))
         return torch.sum(kl_div) + torch.sum(kl_div_y)
 
     def get_loss(self, x):
         """Compute the VaDE loss function."""
         x_recon, z, q_y_given_x = self.forward(x)
         return self.get_reconstruction_loss(x, x_recon) + self.get_kl_divergence(z, q_y_given_x)
+
+    def predict(self, x):
+        """Predict the cluster assignment."""
+        _, _, q_y_given_x = self.forward(x)
+        return torch.argmax(q_y_given_x, dim=1)
