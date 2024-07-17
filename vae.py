@@ -169,7 +169,6 @@ class VaDE(nn.Module):
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the reconstruction loss."""
-        print("recon_loss : ", torch.mean((x - x_recon) ** 2))
         return torch.mean((x - x_recon) ** 2)
 
     def get_kl_divergence(self, z, q_y_given_x):
@@ -185,7 +184,7 @@ class VaDE(nn.Module):
              mu_expand, 2) / torch.exp(logvar_expand))
         # (batch_size, n_clusters)
         log_p_z_given_c = torch.sum(log_p_z_given_c, dim=2)
-        log_p_z_given_c += torch.log(self.pi_prior)  # (n_clusters)
+        log_p_z_given_c += torch.log(self.pi_prior + 1e-10)  # (n_clusters)
 
         log_q_y_given_x = torch.log(q_y_given_x)
         kl_div = torch.sum(
@@ -195,7 +194,6 @@ class VaDE(nn.Module):
         log_q_y_given_x = torch.log(q_y_given_x + 1e-10)
         kl_div_y = torch.sum(q_y_given_x * log_q_y_given_x, dim=1)
 
-        print("kl_div : ", torch.sum(kl_div) + torch.sum(kl_div_y))
         return torch.sum(kl_div) + torch.sum(kl_div_y)
 
     def get_loss(self, x):

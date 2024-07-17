@@ -24,7 +24,12 @@ def train_model(model, train_set, lr, batch_size, epochs, device='cuda'):
             running_loss += loss.item() * batch.size(0)
 
         epoch_loss = running_loss / len(train_set)
-        print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
+
+        if torch.isnan(loss):
+            print("Loss is nan. Stopping training.")
+            return None
+
+        # print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
 
 
 def cross_val(model, train_set, lr, batch_size, epochs, n_splits=5, device='cuda'):
@@ -55,6 +60,10 @@ def cross_val(model, train_set, lr, batch_size, epochs, n_splits=5, device='cuda
                 batch = batch.to(device)
                 optimizer.zero_grad()
                 loss = model.get_loss(batch)
+                # stop training if loss is nan
+                if torch.isnan(loss):
+                    print("Loss is nan. Stopping training.")
+                    return None
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item() * batch.size(0)
