@@ -24,7 +24,7 @@ def objective(trial):
     # clear cuda cache
     torch.cuda.empty_cache()
 
-    lr = trial.suggest_loguniform('lr', 1e-5, 1e-1)
+    lr = trial.suggest_float('lr', 1e-5, 1e-1, log=True)
     batch_size = trial.suggest_categorical('batch_size', [32, 64, 96, 128])
     epochs = trial.suggest_categorical('epochs', [50, 100, 150, 200])
 
@@ -53,7 +53,7 @@ if __name__ == '__main__':
                                 storage='sqlite:///optuna.db',
                                 load_if_exists=True)
 
-    study.optimize(objective, n_trials=100)
+    study.optimize(objective, n_trials=50)
 
     best_trial = study.best_trial
 
@@ -68,4 +68,4 @@ if __name__ == '__main__':
                 epochs=best_trial.params['epochs'])
 
     # save best model
-    torch.save(model.state_dict(), 'vae_12.pth')
+    #torch.save(model.state_dict(), 'vae_12.pth')

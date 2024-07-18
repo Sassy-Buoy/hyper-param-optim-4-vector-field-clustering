@@ -36,7 +36,6 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         """Forward pass through the encoder."""
-        # indices_list = []
         for layer in self.layers:
             x = layer(x)
 
@@ -102,6 +101,9 @@ class VarAutoEncoder(nn.Module):
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the binary cross-entropy loss."""
+        # normalize the data to be in the range [0, 1]
+        x = torch.sigmoid(x)
+        x_recon = torch.sigmoid(x_recon)
         return F.binary_cross_entropy(x_recon, x, reduction='sum')
 
     def get_kl_divergence(self, mu, logvar):

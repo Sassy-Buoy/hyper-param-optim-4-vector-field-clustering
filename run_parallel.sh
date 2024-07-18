@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set the number of CUDA devices
-num_devices=8
+num_devices=2
 
 # Set the path to your Python script
 python_script="/home/tummalas/hyper-param-optim-4-vector-field-clustering/hpo_optuna.py"
