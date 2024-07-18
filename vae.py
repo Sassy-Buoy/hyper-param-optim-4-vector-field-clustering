@@ -47,12 +47,6 @@ class Encoder(nn.Module):
 
         return mu, logvar
 
-    def encode(self, x):
-        """Encode the input data."""
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
 
 class Decoder(nn.Module):
     """Decoder class that mirrors the structure of the Encoder using convolution transpose."""
@@ -82,13 +76,6 @@ class Decoder(nn.Module):
         x = x.view(x.size(0), -1, 1, 1)
         for layer in self.layers:
             x = layer(x)
-
-        return x
-
-    def decode(self, x):
-        """Decode the input data."""
-        for layer in self.layers:
-            x = layer(x)
         return x
 
 
@@ -114,8 +101,8 @@ class VarAutoEncoder(nn.Module):
         return x_recon, mu, logvar
 
     def get_reconstruction_loss(self, x, x_recon):
-        """Compute the reconstruction loss."""
-        return torch.mean((x - x_recon) ** 2)
+        """Compute the binary cross-entropy loss."""
+        return F.binary_cross_entropy(x_recon, x, reduction='sum')
 
     def get_kl_divergence(self, mu, logvar):
         """Compute the Kullback-Leibler divergence."""
@@ -125,12 +112,6 @@ class VarAutoEncoder(nn.Module):
         """Compute the VAE loss."""
         x_recon, mu, logvar = self.forward(x)
         return self.get_reconstruction_loss(x, x_recon) + self.get_kl_divergence(mu, logvar)
-    
-    def reconstruct(self, x):
-        """Reconstruct the input data."""
-        y = self.encoder.encode(x)
-        return self.decoder.decode(y)
-
 
 
 class VaDE(nn.Module):
