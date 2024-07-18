@@ -47,6 +47,12 @@ class Encoder(nn.Module):
 
         return mu, logvar
 
+    def encode(self, x):
+        """Encode the input data."""
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
 
 class Decoder(nn.Module):
     """Decoder class that mirrors the structure of the Encoder using convolution transpose."""
@@ -77,6 +83,12 @@ class Decoder(nn.Module):
         for layer in self.layers:
             x = layer(x)
 
+        return x
+
+    def decode(self, x):
+        """Decode the input data."""
+        for layer in self.layers:
+            x = layer(x)
         return x
 
 
@@ -113,6 +125,12 @@ class VarAutoEncoder(nn.Module):
         """Compute the VAE loss."""
         x_recon, mu, logvar = self.forward(x)
         return self.get_reconstruction_loss(x, x_recon) + self.get_kl_divergence(mu, logvar)
+    
+    def reconstruct(self, x):
+        """Reconstruct the input data."""
+        y = self.encoder.encode(x)
+        return self.decoder.decode(y)
+
 
 
 class VaDE(nn.Module):
@@ -127,7 +145,7 @@ class VaDE(nn.Module):
 
         # GMM parameters
         self.pi_prior = nn.Parameter(torch.ones(
-            n_clusters) / n_clusters, requires_grad=False)
+            n_clusters) / n_clusters, requires_grad=True)
         self.mu_prior = nn.Parameter(torch.randn(
             n_clusters, self.latent_dim), requires_grad=True)
         self.logvar_prior = nn.Parameter(torch.randn(
