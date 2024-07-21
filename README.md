@@ -284,3 +284,11 @@ Algorithms : DBSCAN, K-means, Classifier?
 
 - Decoder : pretty much the same.
 ---
+
+## Comparision table
+
+| Model    | Latent_dim | Test loss   | Classes | ARI | Purity |
+| -------- | ---------- | ----------  | ------- | ----| ------ |
+| vae      | 12         | 406237.9543 | 20      |0.69 | 0.76   |
+| ae       | 12         | 405165.1304 | 20      |0.72 | 0.81   |
+| ae       | 12         | 405186.7159 | 44      |0.61 | 0.94   |

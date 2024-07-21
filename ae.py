@@ -81,8 +81,9 @@ class AutoEncoder(nn.Module):
         x_recon = self.decoder(y)
         return x_recon
 
-    def get_loss(self, x, x_recon):
+    def get_loss(self, x):
         """Compute the binary cross-entropy loss."""
+        x_recon = self.forward(x)
         # normalize the data to be in the range [0, 1]
         x = torch.sigmoid(x)
         x_recon = torch.sigmoid(x_recon)

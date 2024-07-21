@@ -6,7 +6,7 @@ import optuna
 
 from load_data import sim_arr
 from search_space import search_space
-from vae import Encoder, Decoder, VaDE, VarAutoEncoder
+from ae import Encoder, Decoder, AutoEncoder
 from cross_validation import train_model, evaluate_model
 
 # reshape from batch, height, width, channel, to batch, channel, height, width
@@ -36,7 +36,7 @@ def objective(trial):
     encoder_ = Encoder(num_layers, poolsize, channels,
                        kernel_sizes, dilations, activations)
     decoder_ = Decoder(encoder_)
-    model_ = VarAutoEncoder(encoder_, decoder_)
+    model_ = AutoEncoder(encoder_, decoder_)
 
     # train model with k-fold cross validation
     train_model(model_, train_data,
@@ -49,23 +49,8 @@ def objective(trial):
 if __name__ == '__main__':
     study = optuna.create_study(direction='minimize',
                                 pruner=optuna.pruners.HyperbandPruner(),
-                                study_name='vae_12',
+                                study_name='ae_12',
                                 storage='sqlite:///optuna.db',
                                 load_if_exists=True)
 
-    study.optimize(objective, n_trials=50)
-
-    best_trial = study.best_trial
-
-    encoder = Encoder(*search_space(best_trial, 3, 12))
-    decoder = Decoder(encoder)
-    model = VaDE(encoder, decoder, 25)
-
-    # train model with k-fold cross validation
-    train_model(model, train_data,
-                lr=best_trial.params['lr'],
-                batch_size=best_trial.params['batch_size'],
-                epochs=best_trial.params['epochs'])
-
-    # save best model
-    #torch.save(model.state_dict(), 'vae_12.pth')
+    study.optimize(objective, n_trials=13)
