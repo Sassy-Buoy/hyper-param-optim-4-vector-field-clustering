@@ -17,18 +17,4 @@ for label in os.listdir("plots"):
 
 print(lit_labels)
 
-categories = list(set(lit_labels))
-categories.sort()
-
-lables = np.zeros_like(labels)
-
-for i, label in enumerate(lit_labels):
-    labels[i] = categories.index(label)
-
-
-np.save("labels.npy", labels)
-
-# write categories and indices to file
-with open("categories.txt", "w", encoding="utf-8") as file:
-    for i, category in enumerate(categories):
-        file.write(f"{i}: {category}\n")
+np.save("labels.npy", lit_labels)

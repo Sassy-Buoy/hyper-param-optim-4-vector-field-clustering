@@ -21,7 +21,7 @@ def train_model(model, train_set, lr, batch_size, epochs, device='cuda'):
             loss = model.get_loss(batch)
             loss.backward()
             optimizer.step()
-            running_loss += loss.item() * batch.size(0)
+            running_loss += loss.item()
 
         epoch_loss = running_loss / len(train_set)
 
@@ -66,7 +66,7 @@ def cross_val(model, train_set, lr, batch_size, epochs, n_splits=5, device='cuda
                     return None
                 loss.backward()
                 optimizer.step()
-                running_loss += loss.item() * batch.size(0)
+                running_loss += loss.item()
 
             epoch_loss = running_loss / len(train_sampler)
             print(f"Epoch {epoch+1}/{epochs} Loss: {epoch_loss:.4f}")
@@ -98,7 +98,7 @@ def evaluate_model(model, test_set, batch_size, device='cuda'):
         for batch in dataloader:
             batch = batch.to(device)
             loss = model.get_loss(batch)
-            total_loss += loss.item() * batch.size(0)
+            total_loss += loss.item()
 
     avg_loss = total_loss / len(test_set)
     print(f"Test Loss: {avg_loss:.4f}")
