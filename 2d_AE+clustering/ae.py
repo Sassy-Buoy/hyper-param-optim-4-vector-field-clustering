@@ -84,7 +84,16 @@ class AutoEncoder(nn.Module):
     def get_loss(self, x):
         """Compute the binary cross-entropy loss."""
         x_recon = self.forward(x)
-        # normalize the data to be in the range [0, 1]
+
+        # Binary cross-entropy loss
         x = torch.sigmoid(x)
         x_recon = torch.sigmoid(x_recon)
         return F.binary_cross_entropy(x_recon, x, reduction='sum')
+
+        # Mean squared error loss
+        # return F.mse_loss(x_recon, x, reduction='sum')
+
+        # Weighted MSE loss
+        # weights = torch.ones(x.size())
+        # weights[x == 1] = 10
+        # return F.mse_loss(x_recon, x, reduction='sum')
