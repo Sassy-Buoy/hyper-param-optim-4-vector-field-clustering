@@ -1,0 +1,6 @@
+""" models/__init__.py"""
+
+# Exposing certain classes and functions
+from .train import train
+from .cross_validation import cross_val
+from .evaluate import evaluate
