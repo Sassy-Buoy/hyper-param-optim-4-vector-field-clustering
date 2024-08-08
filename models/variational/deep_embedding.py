@@ -94,5 +94,13 @@ class DeepEmbedding(nn.Module):
         x_recon, mu, logvar, z = self.forward(x)
         recon_loss = self.get_reconstruction_loss(x, x_recon)
         kl_divergence = self.get_kl_divergence(mu, logvar, z)
-        loss = recon_loss + kl_divergence
-        return loss
+        loss = recon_loss + 1000*kl_divergence
+        return loss, recon_loss, 1000*kl_divergence
+
+    def feature_array(self, data):
+        """Get the feature map from the encoder."""
+        mu, _ = self.encoder(data.to('cuda'))
+        feature_array = mu.detach().to('cpu').numpy()
+        feature_array = (feature_array - feature_array.mean()
+                         ) / feature_array.std()
+        return feature_array

@@ -1,7 +1,9 @@
 """Training loop for the autoencoder model with clustering."""
 
+import os
 import torch
 import matplotlib.pyplot as plt
+from PIL import Image
 from sklearn.cluster import HDBSCAN
 from cluster_acc import purity, adj_rand_index
 
@@ -20,12 +22,12 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
     model.train()
 
     best_val_loss = float('inf')
-    # epochs_since_improvement = 0
+    epochs_since_improvement = 0
     train_losses = []
     val_losses = []
     purity_scores = []
     adj_rand_scores = []
-    cluster_images = []
+    image_paths = []
 
     sim_arr_tensor = torch.load('./data/sim_arr_tensor.pt')
 
@@ -63,13 +65,13 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
             best_model = model.state_dict()
-        #    epochs_since_improvement = 0
-        # else:
-        #    epochs_since_improvement += 1
-        #    if epochs_since_improvement >= patience:
-        #        print(f"""Early stopping triggered.
-        #              No improvement in validation loss for {patience} epochs.""")
-        #        break
+            epochs_since_improvement = 0
+        else:
+            epochs_since_improvement += 1
+            if epochs_since_improvement >= patience:
+                print(f"""Early stopping triggered.
+                      No improvement in validation loss for {patience} epochs.""")
+                break
 
         # clustering
         feature_array = model.feature_array(sim_arr_tensor)
@@ -84,11 +86,12 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
         # feature_array = feature_array[0].detach().to('cpu').numpy()
         ax.scatter(feature_array[:, 0], feature_array[:, 1],
                    feature_array[:, 2], c=labels)
-        cluster_images.append(fig)
+        plt.savefig(f'./cluster_images/cluster_{epoch}.png')
+        plt.close(fig)
+        image_paths.append(f'./cluster_images/cluster_{epoch}.png')
 
     model.load_state_dict(best_model)
 
-    # plot the training and validation losses and another plot for purity and adj rand index with same x-axis
     plt.figure(figsize=(10, 5))
     plt.plot(train_losses, label='Train Loss')
     plt.plot(val_losses, label='Validation Loss')
@@ -106,5 +109,9 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
     plt.show()
 
     # save the cluster images as a gif
-    cluster_images[0].save('cluster_images.gif', save_all=True,
-                           append_images=cluster_images[1:], optimize=False, duration=100, loop=0)
+    images = [Image.open(image_path) for image_path in image_paths]
+    images[0].save('./cluster_images/cluster.gif', save_all=True,
+                   append_images=images[1:], loop=0, duration=100)
+    # delete the individual images
+    for image_path in image_paths:
+        os.remove(image_path)

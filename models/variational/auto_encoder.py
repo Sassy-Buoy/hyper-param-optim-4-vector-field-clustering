@@ -45,10 +45,11 @@ class AutoEncoder(nn.Module):
         x_recon, mu, logvar = self.forward(x)
         return self.get_reconstruction_loss(x, x_recon) \
             + self.get_kl_divergence(mu, logvar)
-    
+
     def feature_array(self, data):
         """Get the feature map from the encoder."""
         mu, _ = self.encoder(data.to('cuda'))
         feature_array = mu.detach().to('cpu').numpy()
-        feature_array = (feature_array - feature_array.mean()) / feature_array.std()
+        feature_array = (feature_array - feature_array.mean()
+                         ) / feature_array.std()
         return feature_array

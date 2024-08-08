@@ -18,10 +18,9 @@ def train(model, train_set, val_set, lr, batch_size, epochs,
     model.train()
 
     best_val_loss = float('inf')
-    # epochs_since_improvement = 0
+    epochs_since_improvement = 0
     train_losses = []
     val_losses = []
-    
 
     for epoch in range(epochs):
         model.train()
@@ -57,13 +56,13 @@ def train(model, train_set, val_set, lr, batch_size, epochs,
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
             best_model = model.state_dict()
-        #    epochs_since_improvement = 0
-        # else:
-        #    epochs_since_improvement += 1
-        #    if epochs_since_improvement >= patience:
-        #        print(f"""Early stopping triggered.
-        #              No improvement in validation loss for {patience} epochs.""")
-        #        break
+            epochs_since_improvement = 0
+        else:
+            epochs_since_improvement += 1
+            if epochs_since_improvement >= patience:
+                print(f"""Early stopping triggered.
+                      No improvement in validation loss for {patience} epochs.""")
+                break
 
     model.load_state_dict(best_model)
 
