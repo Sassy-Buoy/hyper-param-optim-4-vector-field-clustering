@@ -1,6 +1,7 @@
 """Training loop for the autoencoder model."""
 
 import torch
+import matplotlib.pyplot as plt
 
 
 def train(model, train_set, val_set, lr, batch_size, epochs,
@@ -17,11 +18,13 @@ def train(model, train_set, val_set, lr, batch_size, epochs,
     model.train()
 
     best_val_loss = float('inf')
-    epochs_since_improvement = 0
+    # epochs_since_improvement = 0
     train_losses = []
     val_losses = []
+    
 
     for epoch in range(epochs):
+        model.train()
         running_loss = 0.0
 
         # Training phase
@@ -50,18 +53,25 @@ def train(model, train_set, val_set, lr, batch_size, epochs,
         train_losses.append(epoch_train_loss)
         val_losses.append(epoch_val_loss)
 
-        # Check for early stopping
+        # save the best model
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
-            epochs_since_improvement = 0
-            # Optionally, you might want to save the best model here
-        else:
-            epochs_since_improvement += 1
-            if epochs_since_improvement >= patience:
-                print(f"""Early stopping triggered.
-                      No improvement in validation loss for {patience} epochs.""")
-                break
+            best_model = model.state_dict()
+        #    epochs_since_improvement = 0
+        # else:
+        #    epochs_since_improvement += 1
+        #    if epochs_since_improvement >= patience:
+        #        print(f"""Early stopping triggered.
+        #              No improvement in validation loss for {patience} epochs.""")
+        #        break
 
-        model.train()  # Switch back to training mode after validation
+    model.load_state_dict(best_model)
 
-    return train_losses, val_losses
+    # plot the training and validation losses
+    plt.figure(figsize=(10, 5))
+    plt.plot(train_losses, label='Train Loss')
+    plt.plot(val_losses, label='Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.show()

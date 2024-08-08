@@ -33,3 +33,10 @@ class AutoEncoder(nn.Module):
         # Weighted MSE loss
         # weights = torch.ones(x.size())
         # return torch.mean(weights * (x_recon - x) ** 2)
+
+    def feature_array(self, data):
+        """Get the feature map from the encoder."""
+        feature_array = self.encoder(data.to('cuda'))
+        feature_array = feature_array.detach().cpu().numpy()
+        feature_array = feature_array.reshape(feature_array.shape[0], -1)
+        return feature_array

@@ -1,20 +1,16 @@
-"""bleh"""
+""" This script creates a numpy array of labels for the labelled plots. """
 
 import os
 import numpy as np
 
-# load labels from labels.npy   
-labels = np.load("labels.npy")
-
 # create an array like labels, but with all zeros
-lit_labels = [0 for i in range(len(labels))]
+lit_labels = []
+for label in os.listdir("data/labelled_plots"):
+    for image in os.listdir(f"data/labelled_plots/{label}"):
+        i = image.split(".")[0].split("_")[1]
+        i = int(i)
+        while len(lit_labels) <= i:
+            lit_labels.append(0)
+        lit_labels[i] = label
 
-for label in os.listdir("plots"):
-    for image in os.listdir(f"plots/{label}"):
-        i = image.split(".")[0]
-        i = i.split("_")[1]
-        lit_labels[int(i)] = label
-
-print(lit_labels)
-
-np.save("labels.npy", lit_labels)
+np.save("data/labels.npy", lit_labels)
