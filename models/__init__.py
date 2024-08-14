@@ -6,3 +6,4 @@ from .cross_validation import cross_val
 from .evaluate import evaluate
 from .train_cluster import train_cluster
 from .train_VaDE import train_vade
+from .train_vae import train_vae

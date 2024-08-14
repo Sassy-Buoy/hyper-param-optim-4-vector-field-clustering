@@ -29,12 +29,12 @@ class AutoEncoder(nn.Module):
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the reconstruction loss."""
         # Binary cross-entropy loss
-        x = torch.sigmoid(x)
-        x_recon = torch.sigmoid(x_recon)
-        return F.binary_cross_entropy(x_recon, x, reduction='sum')
+        #x = torch.sigmoid(x)
+        #x_recon = torch.sigmoid(x_recon)
+        #return F.binary_cross_entropy(x_recon, x, reduction='sum')
 
         # Mean squared error loss
-        # return F.mse_loss(x_recon, x, reduction='sum')
+        return F.mse_loss(x_recon, x, reduction='sum')
 
     def get_kl_divergence(self, mu, logvar):
         """Compute the Kullback-Leibler divergence."""
@@ -43,8 +43,9 @@ class AutoEncoder(nn.Module):
     def get_loss(self, x):
         """Compute the VAE loss."""
         x_recon, mu, logvar = self.forward(x)
-        return self.get_reconstruction_loss(x, x_recon) \
-            + self.get_kl_divergence(mu, logvar)
+        recon_loss = self.get_reconstruction_loss(x, x_recon)
+        kl_loss = self.get_kl_divergence(mu, logvar)
+        return recon_loss + 1000*kl_loss, recon_loss, 1000*kl_loss
 
     def feature_array(self, data):
         """Get the feature map from the encoder."""

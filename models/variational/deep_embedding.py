@@ -1,4 +1,4 @@
-"""Variational Autoencoder (VAE) """
+"""Variational Deep Embedding (VaDE) """
 
 import torch
 from torch import nn
