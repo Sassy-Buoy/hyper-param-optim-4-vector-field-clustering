@@ -34,7 +34,9 @@ class AutoEncoder(nn.Module):
         #return F.binary_cross_entropy(x_recon, x, reduction='sum')
 
         # Mean squared error loss
-        return F.mse_loss(x_recon, x, reduction='sum')
+        recon_loss = F.mse_loss(x_recon, x, reduction='sum')
+        #normalize by the number of pixels
+        return recon_loss / x.size(0)
 
     def get_kl_divergence(self, mu, logvar):
         """Compute the Kullback-Leibler divergence."""
@@ -45,7 +47,7 @@ class AutoEncoder(nn.Module):
         x_recon, mu, logvar = self.forward(x)
         recon_loss = self.get_reconstruction_loss(x, x_recon)
         kl_loss = self.get_kl_divergence(mu, logvar)
-        return recon_loss + 1000*kl_loss, recon_loss, 1000*kl_loss
+        return recon_loss + 10*kl_loss, recon_loss, 10*kl_loss
 
     def feature_array(self, data):
         """Get the feature map from the encoder."""

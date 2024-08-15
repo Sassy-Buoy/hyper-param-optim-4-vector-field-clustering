@@ -3,13 +3,14 @@
 import os
 import torch
 import matplotlib.pyplot as plt
+import umap.umap_ as umap
 from PIL import Image
 from sklearn.cluster import HDBSCAN
 from cluster_acc import purity, adj_rand_index
 
 
 def train_vae(model, train_set, val_set, lr, batch_size, epochs,
-                  patience=5, device='cuda'):
+              patience=5, device='cuda'):
     """Train the autoencoder with early stopping based on validation loss stability."""
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -93,11 +94,17 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
         adj_rand_scores.append(adj_rand_index(labels))
 
         # make a gif of the clusters
+        # plot the feature array in 3D with the labels as colors
+
+        reducer = umap.UMAP(n_components=3)
+        reduced_feature_array = reducer.fit_transform(feature_array)
+
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         # feature_array = feature_array[0].detach().to('cpu').numpy()
-        ax.scatter(feature_array[:, 0], feature_array[:, 1],
-                   feature_array[:, 2], c=labels)
+        ax.scatter(reduced_feature_array[:, 0], reduced_feature_array[:, 1],
+                   reduced_feature_array[:, 2], c=labels, cmap='viridis')
+        ax.set_title(f'Clusters at epoch {epoch}')
         plt.savefig(f'./cluster_images/cluster_{epoch}.png')
         plt.close(fig)
         image_paths.append(f'./cluster_images/cluster_{epoch}.png')

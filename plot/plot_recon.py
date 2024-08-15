@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def random_recon(model, test_data):
+def random_recon(model, data):
     """Plot a random reconstruction from the test set."""
-    i = np.random.randint(0, len(test_data))
-    in_sim = test_data[i: i + 1]
+    i = np.random.randint(0, len(data))
+    in_sim = data[i: i + 1]
     in_sim = in_sim.to('cuda:0')
     out_sim = model(in_sim)
     in_sim = in_sim.detach().to('cpu').numpy()
@@ -21,3 +21,6 @@ def random_recon(model, test_data):
     ax[0].imshow(in_sim[0, ..., 2], vmin=-1, vmax=1, cmap="RdBu")
     ax[1].imshow(out_sim[0, ..., 2], vmin=-1, vmax=1, cmap="RdBu")
     plt.show()
+
+    labels = np.load('data/labels.npy')
+    print(labels[i])
