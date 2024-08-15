@@ -7,6 +7,7 @@ import numpy as np
 import discretisedfield as df
 import torch
 
+!!!!!!!!!!!!! DONT RUN THIS FILE !!!!!!!!!!!!!!
 
 def load():
     """Load the data from the simulations."""
