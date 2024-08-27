@@ -54,8 +54,11 @@ class DeepEmbedding(nn.Module):
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the BCE loss between the input x and the reconstructed x."""
-        # return F.binary_cross_entropy_with_logits(x_recon, x, reduction='sum')
-        return F.mse_loss(x_recon, x, reduction='sum')
+        # Binary cross-entropy loss
+        x = torch.sigmoid(x)
+        x_recon = torch.sigmoid(x_recon)
+        return F.binary_cross_entropy(x_recon, x, reduction='sum') / x.size(0)
+        # return F.mse_loss(x_recon, x, reduction='sum')
 
     def get_kl_divergence(self, mu, logvar, z):
         """Compute the Kullback-Leibler divergence.
@@ -94,8 +97,8 @@ class DeepEmbedding(nn.Module):
         x_recon, mu, logvar, z = self.forward(x)
         recon_loss = self.get_reconstruction_loss(x, x_recon)
         kl_divergence = self.get_kl_divergence(mu, logvar, z)
-        loss = recon_loss + 1000*kl_divergence
-        return loss, recon_loss, 1000*kl_divergence
+        loss = recon_loss + 100*kl_divergence
+        return loss, recon_loss, 100*kl_divergence
 
     def feature_array(self, data):
         """Get the feature map from the encoder."""

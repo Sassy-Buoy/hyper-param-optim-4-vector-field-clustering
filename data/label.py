@@ -7,7 +7,7 @@ import numpy as np
 lit_labels = []
 for label in os.listdir("data/labelled_plots"):
     for image in os.listdir(f"data/labelled_plots/{label}"):
-        i = image.split(".")[0].split("_")[1]
+        i = image.split(".")[0]
         i = int(i)
         while len(lit_labels) <= i:
             lit_labels.append(0)

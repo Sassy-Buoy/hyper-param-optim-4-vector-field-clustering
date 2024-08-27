@@ -42,12 +42,12 @@ class AutoEncoder(nn.Module):
         """Compute the Kullback-Leibler divergence."""
         return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
 
-    def get_loss(self, x):
+    def get_loss(self, x, b):
         """Compute the VAE loss."""
         x_recon, mu, logvar = self.forward(x)
         recon_loss = self.get_reconstruction_loss(x, x_recon)
         kl_loss = self.get_kl_divergence(mu, logvar)
-        return recon_loss + 10*kl_loss, recon_loss, 10*kl_loss
+        return recon_loss + b*kl_loss, recon_loss, kl_loss
 
     def feature_array(self, data):
         """Get the feature map from the encoder."""

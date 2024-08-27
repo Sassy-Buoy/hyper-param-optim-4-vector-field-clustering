@@ -28,7 +28,6 @@ class Encoder(nn.Module):
             self.layers.append(activations[i]())
             self.layers.append(nn.MaxPool2d(
                 poolsize[i], ceil_mode=True))
-        self.layers.append(nn.Sigmoid())
 
         # For VAE: layers to output mean and log variance
         self.fc_mu = nn.Linear(channels[-1], channels[-1])

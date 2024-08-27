@@ -7,6 +7,13 @@ import umap.umap_ as umap
 from PIL import Image
 from sklearn.cluster import HDBSCAN
 from cluster_acc import purity, adj_rand_index
+import numpy as np
+
+
+def beta(epoch, epochs, beta_start=0, beta_end=100):
+    """Sigmoid beta annealing schedule."""
+    return beta_end - (beta_end - beta_start) * \
+        (1 / (1 + np.exp(-0.1 * (epoch - epochs / 2))))
 
 
 def train_vae(model, train_set, val_set, lr, batch_size, epochs,
@@ -31,6 +38,7 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
     purity_scores = []
     adj_rand_scores = []
     image_paths = []
+    beta_list = []
 
     sim_arr_tensor = torch.load('./data/sim_arr_tensor.pt')
 
@@ -44,7 +52,8 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
         for batch in train_loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            loss, recon_loss, kl_loss = model.get_loss(batch)
+            b = beta(epoch, epochs)
+            loss, recon_loss, kl_loss = model.get_loss(batch, b)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
@@ -60,7 +69,8 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
         with torch.no_grad():
             for batch in val_loader:
                 batch = batch.to(device)
-                loss, _, _ = model.get_loss(batch)
+                b = beta(epoch, epochs)
+                loss, _, _ = model.get_loss(batch, b)
                 val_loss += loss.item()
         epoch_val_loss = val_loss / len(val_loader)
 
@@ -73,6 +83,7 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
         val_losses.append(epoch_val_loss)
         kl_losses.append(epoch_train_loss_kl)
         recon_losses.append(epoch_train_loss_recon)
+        beta_list.append(beta(epoch, epochs))
 
         # save the best model
         if epoch_val_loss < best_val_loss:
@@ -88,26 +99,13 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
 
         # clustering
         feature_array = model.feature_array(sim_arr_tensor)
-        HDBSCAN_model = HDBSCAN(min_cluster_size=5)
-        labels = HDBSCAN_model.fit_predict(feature_array)
+        hdbscan_model = HDBSCAN(min_cluster_size=5,
+                                cluster_selection_epsilon=0.5)
+        labels = hdbscan_model.fit_predict(feature_array)
         purity_scores.append(purity(labels))
         adj_rand_scores.append(adj_rand_index(labels))
 
         # make a gif of the clusters
-        # plot the feature array in 3D with the labels as colors
-
-        reducer = umap.UMAP(n_components=3)
-        reduced_feature_array = reducer.fit_transform(feature_array)
-
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        # feature_array = feature_array[0].detach().to('cpu').numpy()
-        ax.scatter(reduced_feature_array[:, 0], reduced_feature_array[:, 1],
-                   reduced_feature_array[:, 2], c=labels, cmap='viridis')
-        ax.set_title(f'Clusters at epoch {epoch}')
-        plt.savefig(f'./cluster_images/cluster_{epoch}.png')
-        plt.close(fig)
-        image_paths.append(f'./cluster_images/cluster_{epoch}.png')
 
     model.load_state_dict(best_model)
 
@@ -116,6 +114,7 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
     plt.plot(val_losses, label='Validation Loss')
     plt.plot(kl_losses, label='KL Loss')
     plt.plot(recon_losses, label='Reconstruction Loss')
+    plt.plot(beta_list, label='Beta')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
@@ -135,10 +134,10 @@ def train_vae(model, train_set, val_set, lr, batch_size, epochs,
     plt.legend()
     plt.show()
 
-    # save the cluster images as a gif
+    """# save the cluster images as a gif
     images = [Image.open(image_path) for image_path in image_paths]
     images[0].save('./cluster_images/cluster.gif', save_all=True,
                    append_images=images[1:], loop=0, duration=100)
     # delete the individual images
     for image_path in image_paths:
-        os.remove(image_path)
+        os.remove(image_path)"""

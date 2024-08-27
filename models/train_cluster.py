@@ -4,7 +4,8 @@ import os
 import torch
 import matplotlib.pyplot as plt
 from PIL import Image
-from sklearn.cluster import HDBSCAN
+from sklearn.cluster import KMeans
+from plot import umap_plot
 from cluster_acc import purity, adj_rand_index
 
 
@@ -75,20 +76,17 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
 
         # clustering
         feature_array = model.feature_array(sim_arr_tensor)
-        HDBSCAN_model = HDBSCAN(min_cluster_size=5)
-        labels = HDBSCAN_model.fit_predict(feature_array)
+        kmeans_model = KMeans(n_clusters=15, random_state=42)
+        kmeans_model.fit(feature_array)
+        labels = kmeans_model.labels_
         purity_scores.append(purity(labels))
         adj_rand_scores.append(adj_rand_index(labels))
 
-        # make a gif of the clusters
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        # feature_array = feature_array[0].detach().to('cpu').numpy()
-        ax.scatter(feature_array[:, 0], feature_array[:, 1],
-                   feature_array[:, 2], c=labels)
+        """# make a gif of the clusters
+        fig = umap_plot(feature_array, labels)
         plt.savefig(f'./cluster_images/cluster_{epoch}.png')
         plt.close(fig)
-        image_paths.append(f'./cluster_images/cluster_{epoch}.png')
+        image_paths.append(f'./cluster_images/cluster_{epoch}.png')"""
 
     model.load_state_dict(best_model)
 
@@ -108,10 +106,10 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
     plt.legend()
     plt.show()
 
-    # save the cluster images as a gif
+    """# save the cluster images as a gif
     images = [Image.open(image_path) for image_path in image_paths]
     images[0].save('./cluster_images/cluster.gif', save_all=True,
                    append_images=images[1:], loop=0, duration=100)
     # delete the individual images
     for image_path in image_paths:
-        os.remove(image_path)
+        os.remove(image_path)"""
