@@ -3,3 +3,4 @@ __pycache__/
 data/sim_arr_tensor.pt
 data/parameters_dict.json
 data/simulation_file_paths.json
+lightning_logs/
