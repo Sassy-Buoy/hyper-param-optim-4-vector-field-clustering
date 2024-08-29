@@ -56,9 +56,7 @@ class DeepEmbedding(nn.Module):
         """Compute the BCE loss between the input x and the reconstructed x."""
         # Binary cross-entropy loss
         x = torch.sigmoid(x)
-        x_recon = torch.sigmoid(x_recon)
-        return F.binary_cross_entropy(x_recon, x, reduction='sum') / x.size(0)
-        # return F.mse_loss(x_recon, x, reduction='sum')
+        return nn.BCELoss(reduction='sum')(x_recon, x) / x.size(0)
 
     def get_kl_divergence(self, mu, logvar, z):
         """Compute the Kullback-Leibler divergence.
@@ -92,18 +90,10 @@ class DeepEmbedding(nn.Module):
             return torch.tensor(0.0, device=mu.device)
         return loss
 
-    def get_loss(self, x):
-        """Compute the VaDE loss function."""
-        x_recon, mu, logvar, z = self.forward(x)
-        recon_loss = self.get_reconstruction_loss(x, x_recon)
-        kl_divergence = self.get_kl_divergence(mu, logvar, z)
-        loss = recon_loss + 100*kl_divergence
-        return loss, recon_loss, 100*kl_divergence
-
     def feature_array(self, data):
         """Get the feature map from the encoder."""
-        mu, _ = self.encoder(data.to('cuda'))
-        feature_array = mu.detach().to('cpu').numpy()
+        mu, _ = self.encoder(data)
+        feature_array = mu.detach().numpy()
         feature_array = (feature_array - feature_array.mean()
                          ) / feature_array.std()
         return feature_array

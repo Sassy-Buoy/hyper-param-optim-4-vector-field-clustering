@@ -14,5 +14,3 @@ def umap_plot(feature_array, labels):
                          reduced_feature_array[:, 2], c=labels, cmap='viridis')
     plt.title("UMAP of the feature array")
     plt.colorbar(scatter)
-
-    return fig

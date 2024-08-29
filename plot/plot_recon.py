@@ -7,14 +7,13 @@ def random_recon(model, data):
     """Plot a random reconstruction from the test set."""
     i = np.random.randint(0, len(data))
     in_sim = data[i: i + 1]
-    in_sim = in_sim.to('cuda:0')
     out_sim = model(in_sim)
-    in_sim = in_sim.detach().to('cpu').numpy()
+    in_sim = in_sim.detach().numpy()
     in_sim = in_sim.reshape(
         in_sim.shape[0], in_sim.shape[2], in_sim.shape[3], in_sim.shape[1])
     if isinstance(out_sim, tuple):
         out_sim = out_sim[0]
-    out_sim = out_sim.detach().to('cpu').numpy()
+    out_sim = out_sim.detach().numpy()
     out_sim = out_sim.reshape(
         out_sim.shape[0], out_sim.shape[2], out_sim.shape[3], out_sim.shape[1])
     fig, ax = plt.subplots(nrows=1, ncols=2)

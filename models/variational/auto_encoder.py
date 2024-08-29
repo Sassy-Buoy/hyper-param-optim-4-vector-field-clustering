@@ -13,7 +13,7 @@ class AutoEncoder(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def reparameterize(self, mu, logvar):
+    def _reparameterize(self, mu, logvar):
         """Reparameterization trick to sample from N(mu, var) from N(0,1)."""
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
@@ -22,7 +22,7 @@ class AutoEncoder(nn.Module):
     def forward(self, x):
         """Forward pass through the ClusterAutoencoder."""
         mu, logvar = self.encoder(x)
-        z = self.reparameterize(mu, logvar)
+        z = self._reparameterize(mu, logvar)
         x_recon = self.decoder(z)
         return x_recon, mu, logvar
 
@@ -45,7 +45,7 @@ class AutoEncoder(nn.Module):
     def feature_array(self, data):
         """Get the feature map from the encoder."""
         mu, _ = self.encoder(data.to('cuda'))
-        feature_array = mu.detach().to('cpu').numpy()
+        feature_array = mu.detach().cpu().numpy()
         feature_array = (feature_array - feature_array.mean()
                          ) / feature_array.std()
         return feature_array

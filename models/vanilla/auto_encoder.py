@@ -18,9 +18,8 @@ class AutoEncoder(nn.Module):
         x_recon = self.decoder(y)
         return x_recon
 
-    def get_loss(self, x):
-        """Compute the binary cross-entropy loss."""
-        x_recon = self.forward(x)
+    def get_loss(self, x, x_recon):
+        """Compute the loss."""
 
         # Binary cross-entropy loss
         # x = torch.sigmoid(x)
@@ -36,7 +35,7 @@ class AutoEncoder(nn.Module):
 
     def feature_array(self, data):
         """Get the feature map from the encoder."""
-        feature_array = self.encoder(data.to('cuda'))
-        feature_array = feature_array.detach().cpu().numpy()
+        feature_array = self.encoder(data)
+        feature_array = feature_array.detach().numpy()
         feature_array = feature_array.reshape(feature_array.shape[0], -1)
         return feature_array
