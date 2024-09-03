@@ -43,8 +43,8 @@ def objective(trial):
 
     trainer = L.Trainer(callbacks=[EarlyStopping(monitor="val_loss")],
                         accelerator="gpu",
-                        devices=1,
-                        num_nodes=4,
+                        devices=4,
+                        num_nodes=1,
                         strategy="ddp")
     trainer.fit(model=lit_model,
                 train_dataloaders=DataLoader(train_data,

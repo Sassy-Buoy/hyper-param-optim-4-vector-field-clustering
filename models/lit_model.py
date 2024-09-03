@@ -178,6 +178,6 @@ class LitVaDE(L.LightningModule):
 
     def cluster_acc(self):
         """ Calculate adjusted rand index and purity scores."""
-        labels = self.model.classify(sim_arr_tensor)
-        labels = labels.detach().numpy()
+        labels = self.model.classify(sim_arr_tensor.to('cuda'))
+        labels = labels.detach().cpu().numpy()
         return purity(labels), adj_rand_index(labels)

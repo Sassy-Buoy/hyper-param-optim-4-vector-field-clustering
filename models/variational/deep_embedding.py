@@ -54,9 +54,9 @@ class DeepEmbedding(nn.Module):
 
     def get_reconstruction_loss(self, x, x_recon):
         """Compute the BCE loss between the input x and the reconstructed x."""
-        # Binary cross-entropy loss
-        x = torch.sigmoid(x)
-        return nn.BCELoss(reduction='sum')(x_recon, x) / x.size(0)
+        x = F.sigmoid(x)
+        x_recon = F.sigmoid(x_recon)
+        return nn.BCELoss(reduction='sum')(x_recon, x)
 
     def get_kl_divergence(self, mu, logvar, z):
         """Compute the Kullback-Leibler divergence.

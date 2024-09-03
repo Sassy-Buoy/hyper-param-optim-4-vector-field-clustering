@@ -26,7 +26,7 @@ class Decoder(nn.Module):
                 self.layers.append(nn.Upsample(scale_factor=layer.kernel_size))
             else:
                 self.layers.append(layer)
-        self.layers.append(nn.Tanh())
+        # self.layers.append(nn.Sigmoid())
 
     def forward(self, x):
         """Forward pass through the decoder."""
