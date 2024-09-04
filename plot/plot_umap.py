@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import umap.umap_ as umap
 
 
-def umap_plot(feature_array, labels):
+def plot_umap(feature_array, labels):
     """Plot in 3D the UMAP of the feature array."""
     reducer = umap.UMAP(n_components=2)
     reduced_feature_array = reducer.fit_transform(feature_array)

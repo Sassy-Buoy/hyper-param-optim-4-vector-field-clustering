@@ -6,7 +6,7 @@ import plotly.graph_objs as go
 import plotly.express as ptx
 
 # load the parameters_dict.json
-with open("data/parameters_dict.json", "r") as f:
+with open("data/parameters_dict.json", "r", encoding="utf-8") as f:
     parameters_dict = json.load(f)
 
 

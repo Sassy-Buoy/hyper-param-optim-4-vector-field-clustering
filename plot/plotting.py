@@ -252,7 +252,7 @@ def c_dict(labels, simulation_file_paths=simulation_file_paths):
     return class_dict
 
 
-def class_config(labels, parameters_dict=parameters_dict):
+def plot_class(labels, parameters_dict=parameters_dict):
     """ Configuration for the class plot
 
     Args:

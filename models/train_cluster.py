@@ -5,7 +5,7 @@ import torch
 import matplotlib.pyplot as plt
 from PIL import Image
 from sklearn.cluster import KMeans
-from plot import umap_plot
+from plot import plot_umap
 from cluster_acc import purity, adj_rand_index
 
 
@@ -83,7 +83,7 @@ def train_cluster(model, train_set, val_set, lr, batch_size, epochs,
         adj_rand_scores.append(adj_rand_index(labels))
 
         """# make a gif of the clusters
-        fig = umap_plot(feature_array, labels)
+        fig = plot_umap(feature_array, labels)
         plt.savefig(f'./cluster_images/cluster_{epoch}.png')
         plt.close(fig)
         image_paths.append(f'./cluster_images/cluster_{epoch}.png')"""
