@@ -1,12 +1,16 @@
 """Lightning module for training and evaluation."""
 
+import os
+
 import torch
 import lightning as L
-from sklearn.cluster import KMeans, HDBSCAN
+from sklearn.cluster import HDBSCAN
+import matplotlib.pyplot as plt
+import imageio
 
 from models import vanilla, variational
 from cluster_acc import purity, adj_rand_index
-# from plot import umap_plot
+from plot import plot_umap
 
 sim_arr_tensor = torch.load('./data/sim_arr_tensor.pt')
 
@@ -14,7 +18,7 @@ sim_arr_tensor = torch.load('./data/sim_arr_tensor.pt')
 class LitAE(L.LightningModule):
     """Lightning module for training and evaluation."""
 
-    def __init__(self, hyperparameters: dict, cluster: bool = False):
+    def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
         super().__init__()
         self.lr = hyperparameters["lr"]
         self.cluster = cluster
@@ -26,6 +30,8 @@ class LitAE(L.LightningModule):
                                   hyperparameters["activations"])
         decoder = vanilla.Decoder(encoder)
         self.model = vanilla.AutoEncoder(encoder, decoder)
+        self.gif = gif
+        self.frames = []  # For storing images to make GIF
 
     def training_step(self, batch, batch_idx):
         x_recon = self.model(batch)
@@ -37,9 +43,23 @@ class LitAE(L.LightningModule):
         x_recon = self.model(batch)
         loss = self.model.get_loss(batch, x_recon)
         self.log("val_loss", loss)
+        if self.cluster or self.gif:
+            feature_array = self.model.feature_array(sim_arr_tensor)
+            hdbscan_model = HDBSCAN(min_cluster_size=3,
+                                    min_samples=3,
+                                    cluster_selection_epsilon=0.96)
+            labels = hdbscan_model.fit_predict(feature_array)
         if self.cluster:
-            purity_score, adj_rand = self.cluster_acc()
-            self.log_dict({"purity_score": purity_score, "ARI": adj_rand})
+            self.log_dict({"purity_score": purity(labels),
+                           "ARI": adj_rand_index(labels)})
+        if self.gif:
+            plot_umap(feature_array, labels)
+            fname = f"umap_frame_{self.current_epoch}_{batch_idx}.png"
+            plt.savefig(fname)
+            plt.close()
+
+        # Store image path for GIF generation later
+        self.frames.append(fname)
 
     def test_step(self, batch, batch_idx):
         x_recon = self.model(batch)
@@ -49,13 +69,18 @@ class LitAE(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-    def cluster_acc(self):
-        """ Calculate adjusted rand index and purity scores."""
-        feature_array = self.model.feature_array(sim_arr_tensor)
-        kmeans_model = KMeans(n_clusters=15, random_state=42)
-        kmeans_model.fit(feature_array)
-        labels = kmeans_model.labels_
-        return purity(labels), adj_rand_index(labels)
+    def on_validation_end(self):
+        """If gif is True, create a gif from the saved frames."""
+        if self.gif and self.frames:
+            images = []
+            for filename in self.frames:
+                images.append(imageio.imread(filename))
+            imageio.mimsave('latent_space_evolution.gif', images, fps=2)
+
+            # Clean up image files after GIF creation
+            for file in self.frames:
+                os.remove(file)
+            self.frames.clear()
 
 
 class LitVAE(L.LightningModule):
