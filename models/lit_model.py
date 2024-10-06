@@ -20,8 +20,10 @@ class LitAE(L.LightningModule):
 
     def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
         super().__init__()
-        self.lr = hyperparameters["lr"]
         self.cluster = cluster
+        self.gif = gif
+        self.frames = []  # For storing images to make GIF
+        self.lr = hyperparameters["lr"]
         encoder = vanilla.Encoder(hyperparameters["num_layers"],
                                   hyperparameters["poolsize"],
                                   hyperparameters["channels"],
@@ -30,8 +32,6 @@ class LitAE(L.LightningModule):
                                   hyperparameters["activations"])
         decoder = vanilla.Decoder(encoder)
         self.model = vanilla.AutoEncoder(encoder, decoder)
-        self.gif = gif
-        self.frames = []  # For storing images to make GIF
 
     def training_step(self, batch, batch_idx):
         x_recon = self.model(batch)
@@ -43,23 +43,24 @@ class LitAE(L.LightningModule):
         x_recon = self.model(batch)
         loss = self.model.get_loss(batch, x_recon)
         self.log("val_loss", loss)
-        if self.cluster or self.gif:
-            feature_array = self.model.feature_array(sim_arr_tensor)
-            hdbscan_model = HDBSCAN(min_cluster_size=3,
-                                    min_samples=3,
-                                    cluster_selection_epsilon=0.96)
-            labels = hdbscan_model.fit_predict(feature_array)
-        if self.cluster:
-            self.log_dict({"purity_score": purity(labels),
-                           "ARI": adj_rand_index(labels)})
-        if self.gif:
-            plot_umap(feature_array, labels)
-            fname = f"umap_frame_{self.current_epoch}_{batch_idx}.png"
-            plt.savefig(fname)
-            plt.close()
 
-        # Store image path for GIF generation later
-        self.frames.append(fname)
+        if self.cluster or self.gif:
+            feature_array = self.model.feature_array(batch)
+            hdbscan_model = HDBSCAN(
+                min_cluster_size=3, min_samples=3, cluster_selection_epsilon=0.96)
+            labels = hdbscan_model.fit_predict(feature_array)
+
+            if self.cluster:
+                self.log_dict({"purity_score": purity(labels),
+                              "ARI": adj_rand_index(labels)})
+
+            if self.gif:
+                plot_umap(feature_array, labels)
+                fname = f"umap_frame_epoch_{self.current_epoch}.png"
+                plt.savefig(fname)
+                plt.close()
+                # Store the filename for GIF creation later
+                self.frames.append(fname)
 
     def test_step(self, batch, batch_idx):
         x_recon = self.model(batch)
@@ -69,27 +70,32 @@ class LitAE(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-    def on_validation_end(self):
-        """If gif is True, create a gif from the saved frames."""
+    def on_fit_end(self) -> None:
+        """If gif is True, create a GIF from the saved frames."""
         if self.gif and self.frames:
             images = []
             for filename in self.frames:
                 images.append(imageio.imread(filename))
-            imageio.mimsave('latent_space_evolution.gif', images, fps=2)
+
+            # Create GIF
+            imageio.mimsave('latent_space_evolution_ae.gif', images, fps=2)
 
             # Clean up image files after GIF creation
             for file in self.frames:
-                os.remove(file)
+                if os.path.exists(file):
+                    os.remove(file)
             self.frames.clear()
 
 
 class LitVAE(L.LightningModule):
     """Lightning module for training and evaluation."""
 
-    def __init__(self, hyperparameters: dict, cluster: bool = False):
+    def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
         super().__init__()
-        self.lr = hyperparameters["lr"]
         self.cluster = cluster
+        self.gif = gif
+        self.frames = []  # For storing images to make GIF
+        self.lr = hyperparameters["lr"]
         encoder = variational.Encoder(hyperparameters["num_layers"],
                                       hyperparameters["poolsize"],
                                       hyperparameters["channels"],
@@ -120,9 +126,19 @@ class LitVAE(L.LightningModule):
         self.log("val_kl_divergence", kl_divergence)
         loss = reconstruction_loss + kl_divergence
         self.log("val_loss", loss)
+        if self.cluster or self.gif:
+            feature_array = self.model.feature_array(sim_arr_tensor)
+            hdbscan_model = HDBSCAN(min_cluster_size=5,
+                                    cluster_selection_epsilon=0.5)
+            labels = hdbscan_model.fit_predict(feature_array)
         if self.cluster:
-            purity_score, adj_rand = self.cluster_acc()
-            self.log_dict({"purity_score": purity_score, "ARI": adj_rand})
+            self.log_dict({"purity_score": purity(labels),
+                           "ARI": adj_rand_index(labels)})
+        if self.gif:
+            plot_umap(feature_array, labels)
+            fname = f"umap_frame_{self.current_epoch}.png"
+            plt.savefig(fname)
+            plt.close()
 
     def test_step(self, batch, batch_idx):
         x_recon, mu, logvar = self.model(batch)
@@ -137,22 +153,30 @@ class LitVAE(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-    def cluster_acc(self):
-        """ Calculate adjusted rand index and purity scores."""
-        feature_array = self.model.feature_array(sim_arr_tensor)
-        hdbscan_model = HDBSCAN(min_cluster_size=5,
-                                cluster_selection_epsilon=0.5)
-        labels = hdbscan_model.fit_predict(feature_array)
-        return purity(labels), adj_rand_index(labels)
+    def on_fit_end(self) -> None:
+        """If gif is True, create a gif from the saved frames."""
+        if self.gif and self.frames:
+            images = []
+            for filename in self.frames:
+                images.append(imageio.imread(filename))
+            imageio.mimsave('latent_space_evolution_vae.gif', images, fps=2)
+
+            # Clean up image files after GIF creation
+            for file in self.frames:
+                os.remove(file)
+            self.frames.clear()
 
 
 class LitVaDE(L.LightningModule):
+
     """Lightning module for training and evaluation."""
 
-    def __init__(self, hyperparameters: dict, cluster: bool = False):
+    def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
         super().__init__()
-        self.lr = hyperparameters["lr"]
         self.cluster = cluster
+        self.gif = gif
+        self.frames = []  # For storing images to make GIF
+        self.lr = hyperparameters["lr"]
         encoder = variational.Encoder(hyperparameters["num_layers"],
                                       hyperparameters["poolsize"],
                                       hyperparameters["channels"],
@@ -184,9 +208,18 @@ class LitVaDE(L.LightningModule):
         self.log("val_kl_divergence", kl_divergence)
         loss = reconstruction_loss + kl_divergence
         self.log("val_loss", loss)
+        if self.cluster or self.gif:
+            feature_array = self.model.feature_array(sim_arr_tensor)
+            labels = self.model.classify(sim_arr_tensor.to('cuda'))
+            labels = labels.detach().cpu().numpy()
         if self.cluster:
-            purity_score, adj_rand = self.cluster_acc()
-            self.log_dict({"purity_score": purity_score, "ARI": adj_rand})
+            self.log_dict({"purity_score": purity(labels),
+                           "ARI": adj_rand_index(labels)})
+        if self.gif:
+            plot_umap(feature_array, labels)
+            fname = f"umap_frame_{self.current_epoch}.png"
+            plt.savefig(fname)
+            plt.close()
 
     def test_step(self, batch, batch_idx):
         x_recon, mu, logvar, z = self.model(batch)
@@ -201,8 +234,15 @@ class LitVaDE(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
-    def cluster_acc(self):
-        """ Calculate adjusted rand index and purity scores."""
-        labels = self.model.classify(sim_arr_tensor.to('cuda'))
-        labels = labels.detach().cpu().numpy()
-        return purity(labels), adj_rand_index(labels)
+    def on_fit_end(self) -> None:
+        """If gif is True, create a gif from the saved frames."""
+        if self.gif and self.frames:
+            images = []
+            for filename in self.frames:
+                images.append(imageio.imread(filename))
+            imageio.mimsave('latent_space_evolution_vade.gif', images, fps=2)
+
+            # Clean up image files after GIF creation
+            for file in self.frames:
+                os.remove(file)
+            self.frames.clear()
