@@ -2,6 +2,7 @@
 
 import os
 
+import numpy as np
 import torch
 import lightning as L
 from sklearn.cluster import HDBSCAN
@@ -33,6 +34,9 @@ class LitAE(L.LightningModule):
         decoder = vanilla.Decoder(encoder)
         self.model = vanilla.AutoEncoder(encoder, decoder)
 
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+
     def training_step(self, batch, batch_idx):
         x_recon = self.model(batch)
         loss = self.model.get_loss(batch, x_recon)
@@ -44,10 +48,12 @@ class LitAE(L.LightningModule):
         loss = self.model.get_loss(batch, x_recon)
         self.log("val_loss", loss)
 
+    def on_validation_epoch_end(self):
         if self.cluster or self.gif:
-            feature_array = self.model.feature_array(batch)
+            feature_array = self.model.feature_array(sim_arr_tensor)
+
             hdbscan_model = HDBSCAN(
-                min_cluster_size=3, min_samples=3, cluster_selection_epsilon=0.96)
+                min_cluster_size=3, cluster_selection_epsilon=0.9)
             labels = hdbscan_model.fit_predict(feature_array)
 
             if self.cluster:
@@ -55,36 +61,22 @@ class LitAE(L.LightningModule):
                               "ARI": adj_rand_index(labels)})
 
             if self.gif:
-                plot_umap(feature_array, labels)
-                fname = f"umap_frame_epoch_{self.current_epoch}.png"
-                plt.savefig(fname)
-                plt.close()
-                # Store the filename for GIF creation later
-                self.frames.append(fname)
+                # create folder if it doesn't exist
+                if not os.path.exists("ae_umap"):
+                    os.makedirs("ae_umap")
+                # save feature array and labels to disk
+                np.save(f"ae_umap/fa_{self.current_epoch}.npy", feature_array)
+                np.save(f"ae_umap/l_{self.current_epoch}.npy", labels)
+                # plot_umap(feature_array, labels)
+                # fname = f"umap_frame_{self.current_epoch}.png"
+                # plt.savefig(fname)
+                # plt.close()
+                # self.frames.append(fname)
 
     def test_step(self, batch, batch_idx):
         x_recon = self.model(batch)
         loss = self.model.get_loss(batch, x_recon)
         self.log("test_loss", loss)
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
-
-    def on_fit_end(self) -> None:
-        """If gif is True, create a GIF from the saved frames."""
-        if self.gif and self.frames:
-            images = []
-            for filename in self.frames:
-                images.append(imageio.imread(filename))
-
-            # Create GIF
-            imageio.mimsave('latent_space_evolution_ae.gif', images, fps=2)
-
-            # Clean up image files after GIF creation
-            for file in self.frames:
-                if os.path.exists(file):
-                    os.remove(file)
-            self.frames.clear()
 
 
 class LitVAE(L.LightningModule):
@@ -106,6 +98,9 @@ class LitVAE(L.LightningModule):
         self.model = variational.AutoEncoder(encoder, decoder)
         self.beta = hyperparameters["beta"] if "beta" in hyperparameters else 1.0
 
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+
     def training_step(self, batch, batch_idx):
         x_recon, mu, logvar = self.model(batch)
         reconstruction_loss = self.model.get_reconstruction_loss(
@@ -126,19 +121,31 @@ class LitVAE(L.LightningModule):
         self.log("val_kl_divergence", kl_divergence)
         loss = reconstruction_loss + kl_divergence
         self.log("val_loss", loss)
+
+    def on_validation_epoch_end(self):
         if self.cluster or self.gif:
             feature_array = self.model.feature_array(sim_arr_tensor)
-            hdbscan_model = HDBSCAN(min_cluster_size=5,
-                                    cluster_selection_epsilon=0.5)
+
+            hdbscan_model = HDBSCAN(min_cluster_size=3,
+                                    cluster_selection_epsilon=0.9)
             labels = hdbscan_model.fit_predict(feature_array)
-        if self.cluster:
-            self.log_dict({"purity_score": purity(labels),
-                           "ARI": adj_rand_index(labels)})
-        if self.gif:
-            plot_umap(feature_array, labels)
-            fname = f"umap_frame_{self.current_epoch}.png"
-            plt.savefig(fname)
-            plt.close()
+
+            if self.cluster:
+                self.log_dict({"purity_score": purity(labels),
+                               "ARI": adj_rand_index(labels)})
+
+            if self.gif:
+                # create folder if it doesn't exist
+                if not os.path.exists("vae_umap"):
+                    os.makedirs("vae_umap")
+                # save feature array and labels to disk
+                np.save(f"vae_umap/fa_{self.current_epoch}.npy", feature_array)
+                np.save(f"vae_umap/l_{self.current_epoch}.npy", labels)
+                #plot_umap(feature_array, labels)
+                #fname = f"umap_frame_{self.current_epoch}.png"
+                #plt.savefig(fname)
+                #plt.close()
+                #self.frames.append(fname)
 
     def test_step(self, batch, batch_idx):
         x_recon, mu, logvar = self.model(batch)
@@ -149,22 +156,6 @@ class LitVAE(L.LightningModule):
         self.log("test_kl_divergence", kl_divergence)
         loss = reconstruction_loss + kl_divergence
         self.log("test_loss", loss)
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
-
-    def on_fit_end(self) -> None:
-        """If gif is True, create a gif from the saved frames."""
-        if self.gif and self.frames:
-            images = []
-            for filename in self.frames:
-                images.append(imageio.imread(filename))
-            imageio.mimsave('latent_space_evolution_vae.gif', images, fps=2)
-
-            # Clean up image files after GIF creation
-            for file in self.frames:
-                os.remove(file)
-            self.frames.clear()
 
 
 class LitVaDE(L.LightningModule):
@@ -188,6 +179,9 @@ class LitVaDE(L.LightningModule):
                                                hyperparameters["n_clusters"])
         self.beta = hyperparameters["beta"] if "beta" in hyperparameters else 1.0
 
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+
     def training_step(self, batch, batch_idx):
         x_recon, mu, logvar, z = self.model(batch)
         reconstruction_loss = self.model.get_reconstruction_loss(
@@ -208,31 +202,24 @@ class LitVaDE(L.LightningModule):
         self.log("val_kl_divergence", kl_divergence)
         loss = reconstruction_loss + kl_divergence
         self.log("val_loss", loss)
+
+    def on_validation_epoch_end(self):
         if self.cluster or self.gif:
             feature_array = self.model.feature_array(sim_arr_tensor)
+
             labels = self.model.classify(sim_arr_tensor.to('cuda'))
             labels = labels.detach().cpu().numpy()
-        if self.cluster:
-            self.log_dict({"purity_score": purity(labels),
-                           "ARI": adj_rand_index(labels)})
-        if self.gif:
-            plot_umap(feature_array, labels)
-            fname = f"umap_frame_{self.current_epoch}.png"
-            plt.savefig(fname)
-            plt.close()
 
-    def test_step(self, batch, batch_idx):
-        x_recon, mu, logvar, z = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar, z)
-        self.log("test_reconstruction_loss", reconstruction_loss)
-        self.log("test_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + kl_divergence
-        self.log("test_loss", loss)
+            if self.cluster:
+                self.log_dict({"purity_score": purity(labels),
+                               "ARI": adj_rand_index(labels)})
 
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+            if self.gif:
+                plot_umap(feature_array, labels)
+                fname = f"umap_frame_{self.current_epoch}.png"
+                plt.savefig(fname)
+                plt.close()
+                self.frames.append(fname)
 
     def on_fit_end(self) -> None:
         """If gif is True, create a gif from the saved frames."""
@@ -244,5 +231,16 @@ class LitVaDE(L.LightningModule):
 
             # Clean up image files after GIF creation
             for file in self.frames:
-                os.remove(file)
+                if os.path.exists(file):
+                    os.remove(file)
             self.frames.clear()
+
+    def test_step(self, batch, batch_idx):
+        x_recon, mu, logvar, z = self.model(batch)
+        reconstruction_loss = self.model.get_reconstruction_loss(
+            batch, x_recon)
+        kl_divergence = self.model.get_kl_divergence(mu, logvar, z)
+        self.log("test_reconstruction_loss", reconstruction_loss)
+        self.log("test_kl_divergence", kl_divergence)
+        loss = reconstruction_loss + kl_divergence
+        self.log("test_loss", loss)

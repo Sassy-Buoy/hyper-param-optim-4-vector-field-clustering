@@ -240,7 +240,7 @@ def c_dict(labels, simulation_file_paths=simulation_file_paths):
         None
     """
 
-    class_dict = {f"Class {i}": list() for i in range(len(set(labels)))}
+    class_dict = {f"Class {i}": list() for i in range(len(set(labels))+1)}
     class_dict["Outliers"] = list()
     for index, path in enumerate(simulation_file_paths):
         class_ = labels[index]
@@ -300,11 +300,11 @@ def plot_class(labels, parameters_dict=parameters_dict):
             b=25,
             t=25,
         ),
-        xaxis_title=r"$\mu_0 \mathbf{H} \text{ (T)}$",
-        yaxis_title=r"$\Delta \text{E (J)}$",
+        xaxis_title=r'$\mu_0 \mathbf{H} \text{ (T)}$',
+        yaxis_title=r'$\Delta \text{E (J)}$',
     )
 
-    fig.show()
+    return fig
 
 # def interactive_2d_scatter_plotly(
 #     parameter_dictionary: dict[str, dict[str, float]],
