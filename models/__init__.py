@@ -1,9 +1,6 @@
-""" models/__init__.py"""
+"""models/__init__.py"""
 
-# Exposing certain classes and functions
-from .cross_validation import cross_val
-from .evaluate import evaluate
-from .lit_model import LitAE, LitVAE, LitVaDE
-from .vanilla.auto_encoder import AutoEncoder
-from .vanilla.decoder import Decoder
-from .vanilla.encoder import Encoder
+from .lit_model import LitModel, DataModule
+from .auto_encoder import AutoEncoder, VarAutoEncoder
+
+__all__ = ["LitModel", "DataModule", "AutoEncoder", "VarAutoEncoder"]

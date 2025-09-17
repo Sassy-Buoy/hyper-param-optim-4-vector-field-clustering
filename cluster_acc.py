@@ -1,5 +1,4 @@
-""" Clustering accuracy evaluation
-"""
+"""Clustering accuracy evaluation"""
 
 import numpy as np
 from sklearn import metrics
@@ -7,8 +6,7 @@ from sklearn import metrics
 
 def purity(labels_pred, labels_true=np.load("data/labels.npy")):
     """Compute the purity of the clustering"""
-    confusion_matrix = metrics.cluster.contingency_matrix(
-        labels_true, labels_pred)
+    confusion_matrix = metrics.cluster.contingency_matrix(labels_true, labels_pred)
     return np.sum(np.amax(confusion_matrix, axis=0)) / np.sum(confusion_matrix)
 
 

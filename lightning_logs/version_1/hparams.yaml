@@ -1,0 +1,45 @@
+config:
+- in_channels: 3
+  kernel_size: 7
+  out_channels: 16
+  stride: 2
+  type: Conv
+- in_channels: 16
+  kernel_size: 5
+  out_channels: 32
+  stride: 2
+  type: Conv
+- in_channels: 32
+  kernel_size: 5
+  out_channels: 64
+  stride: 2
+  type: Conv
+- in_channels: 64
+  kernel_size: 3
+  out_channels: 128
+  stride: 2
+  type: Conv
+- in_channels: 128
+  kernel_size: 3
+  out_channels: 256
+  stride: 2
+  type: Conv
+- in_channels: 256
+  kernel_size: 3
+  out_channels: 512
+  stride: 3
+  type: Conv
+- in_channels: 512
+  in_size: 1
+  out_features: 512
+  type: Flatten
+- activation: LeakyReLU
+  in_features: 512
+  out_features: 64
+  type: Linear
+- activation: None
+  in_features: 64
+  out_features: 8
+  type: Linear
+learning_rate: 0.001
+model_type: variational

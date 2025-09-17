@@ -1,5 +1,4 @@
-""" plotting
-"""
+"""plotting"""
 
 import json
 import pathlib
@@ -11,16 +10,13 @@ import plotly.express as ptx
 import discretisedfield as df
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import plotly.graph_objs as go
-# import plotly.express as px
-# from dash import Dash, Input, Output, dcc, html
-# from dash.exceptions import PreventUpdate
-from numpy.typing import NDArray
 
-with open('./data/simulation_file_paths.json', 'r', encoding='utf-8') as f:
+from IPython.display import display
+
+with open("./data/simulation_file_paths.json", "r", encoding="utf-8") as f:
     simulation_file_paths = json.load(f)
-with open('./data/parameters_dict.json', 'r', encoding='utf-8') as f:
+with open("./data/parameters_dict.json", "r", encoding="utf-8") as f:
     parameters_dict = json.load(f)
 
 
@@ -72,8 +68,7 @@ def plot_one_field(axs: plt.Axes, field: df.Field) -> plt.Axes:
         axis with example plot.
     """
     field.orientation.z.sel("z").mpl.scalar(ax=axs, clim=(-1, 1))
-    field.orientation.sel("z").resample(
-        n=(20, 20)).mpl.vector(ax=axs, use_color=False)
+    field.orientation.sel("z").resample(n=(20, 20)).mpl.vector(ax=axs, use_color=False)
     return axs
 
 
@@ -229,199 +224,75 @@ def plot_class_examples(
     return fig
 
 
-def c_dict(labels, simulation_file_paths=simulation_file_paths):
-    """ Configuration for the class plot
+def c_dict(labels, simulation_file_paths):
+    class_dict = {f"Class {lbl}": [] for lbl in set(labels) if lbl != -1}
+    class_dict["Outliers"] = []
+    image_dict = {f"Class {lbl}": [] for lbl in set(labels) if lbl != -1}
+    image_dict["Outliers"] = []
 
-    Args:
-        labels (list): List of class labels
-        parameters_dict (dict): Dictionary containing the parameters of the simulations
-
-    Returns:
-        None
-    """
-
-    class_dict = {f"Class {i}": list() for i in range(len(set(labels))+1)}
-    class_dict["Outliers"] = list()
     for index, path in enumerate(simulation_file_paths):
         class_ = labels[index]
+        # find the png file with the index
+        img_path = f"data/field_images/{index}.png"
         if class_ == -1:
             class_dict["Outliers"].append(str(path))
+            image_dict["Outliers"].append(img_path)
         else:
             class_dict[f"Class {class_}"].append(str(path))
+            image_dict[f"Class {class_}"].append(img_path)
 
-    return class_dict
+    return class_dict, image_dict
 
 
-def plot_class(labels, parameters_dict=parameters_dict):
-    """ Configuration for the class plot
+def plot_class(
+    labels, parameters_dict=parameters_dict, simulation_file_paths=simulation_file_paths
+):
+    class_dict, image_dict = c_dict(labels, simulation_file_paths)
 
-    Args:
-        labels (list): List of class labels
-        parameters_dict (dict): Dictionary containing the parameters of the simulations
+    fig = go.FigureWidget()  # FigureWidget allows interactive updates
 
-    Returns:
-        None
-    """
-    print("Number of classes: ",
-          len(set(labels)) - (1 if -1 in labels else 0))
-
-    class_dict = c_dict(labels)
-
-    traces = list()
-    for class_id, colour in zip(class_dict, ptx.colors.qualitative.Dark24):
-        traces.append(
-            go.Scatter(
-                x=[
-                    parameters_dict[f]["H"]
-                    for f in class_dict[class_id]
-                ],
-                y=[
-                    parameters_dict[f]["E"]
-                    for f in class_dict[class_id]
-                ],
-                mode="markers",
-                name=class_id,
-                opacity=0.7,
-                marker=dict(
-                    size=11,
-                    color=colour,
-                ),
-            )
+    # Add scatter traces
+    for class_id, colour in zip(class_dict.keys(), ptx.colors.qualitative.Dark24):
+        fig.add_scatter(
+            x=[parameters_dict[f]["H"] for f in class_dict[class_id]],
+            y=[parameters_dict[f]["E"] for f in class_dict[class_id]],
+            mode="markers",
+            name=class_id,
+            marker=dict(size=11, color=colour),
+            customdata=image_dict[class_id],
+            hovertemplate="H: %{x}<br>E: %{y}<extra></extra>",
         )
 
-    fig = go.Figure(data=traces)
     fig.update_layout(
-        autosize=False,
-        width=990,
+        width=900,
         height=600,
-        margin=dict(
-            l=10,
-            r=10,
-            b=25,
-            t=25,
-        ),
-        xaxis_title=r'$\mu_0 \mathbf{H} \text{ (T)}$',
-        yaxis_title=r'$\Delta \text{E (J)}$',
+        margin=dict(l=10, r=10, t=25, b=25),
+        xaxis_title=r"$\mu_0 \mathbf{H} \text{ (T)}$",
+        yaxis_title=r"$\Delta \text{E (J)}$",
+        images=[  # initial empty image
+            dict(
+                source="",
+                xref="paper",
+                yref="paper",
+                x=0.4,  # just outside right of plot
+                y=1,
+                xanchor="left",
+                yanchor="top",
+                sizex=0.3,
+                sizey=0.3,
+                layer="above",
+            )
+        ],
     )
 
-    return fig
+    # Update image on hover
+    def update_image(trace, points, state):
+        if points.point_inds:
+            idx = points.point_inds[0]
+            img_path = trace.customdata[idx]
+            fig.layout.images[0].source = img_path
 
-# def interactive_2d_scatter_plotly(
-#     parameter_dictionary: dict[str, dict[str, float]],
-#     x_parameter: str,
-#     y_parameter: str,
-#     class_dictionary: dict[str, list[str]],
-#     opacity: float = 0.7,
-#     marker_size: int = 20,
-#     c_list: list[str] = px.colors.qualitative.Plotly,
-#     **kwargs,
-# ):
+    for trace in fig.data:
+        trace.on_hover(update_image)
 
-#     # Initialize the Dash app
-#     app = Dash(__name__)
-
-#     traces = []
-#     for class_id, colour in zip(class_dictionary, c_list):
-#         traces.append(
-#             go.Scatter(
-#                 x=[
-#                     parameter_dictionary[f][x_parameter]
-#                     for f in class_dictionary[class_id]
-#                 ],
-#                 y=[
-#                     parameter_dictionary[f][y_parameter]
-#                     for f in class_dictionary[class_id]
-#                 ],
-#                 customdata=[f for f in class_dictionary[class_id]],
-#                 mode="markers",
-#                 name=class_id,
-#                 opacity=opacity,
-#                 marker=dict(
-#                     size=marker_size,
-#                     color=colour,
-#                 ),
-#                 **kwargs,
-#             )
-#         )
-
-#     layout = go.Layout(
-#         clickmode="event+select",
-#         xaxis=dict(title=x_parameter, mirror=True, showline=True, zeroline=False),
-#         yaxis=dict(title=y_parameter, mirror=True, showline=True, zeroline=False),
-#     )
-
-#     def blank_fig():
-#         fig = go.Figure(go.Scatter(x=[], y=[]))
-#         fig.update_layout(template=None)
-#         fig.update_xaxes(showgrid=False, showticklabels=False, zeroline=False)
-#         fig.update_yaxes(showgrid=False, showticklabels=False, zeroline=False)
-
-#         return fig
-
-#     # Define the app layout
-#     app.layout = html.Div(
-#         children=[
-#             dcc.Graph(
-#                 id="graph_interaction",
-#                 figure={
-#                     "data": traces,
-#                     "layout": layout,
-#                 },
-#                 style={"display": "inline-block", "width": "50%"},
-#             ),
-#             dcc.Graph(
-#                 id="config",
-#                 style={"display": "inline-block", "width": "25%"},
-#                 figure=blank_fig(),
-#             ),
-#             dcc.Graph(
-#                 id="init",
-#                 style={"display": "inline-block", "width": "25%"},
-#                 figure=blank_fig(),
-#             ),
-#         ]
-#     )
-
-#     # Define callback to update image src on hover
-#     @app.callback(Output("config", "figure"), Input("graph_interaction", "hoverData"))
-#     def display_hover_data_config(hoverData):
-#         if hoverData:
-#             field = df.Field.from_file(hoverData["points"][0]["customdata"])
-#             fig_s = px.imshow(
-#                 np.transpose(field.orientation.z.sel("z").array.squeeze()),
-#                 color_continuous_scale="RdBu_r",
-#                 zmin=-1,
-#                 zmax=1,
-#                 origin="lower",
-#             )
-#             fig_s.update(
-#                     layout_coloraxis_showscale=False,
-#                     layout_margin=dict(l=20, r=20, t=20, b=20),
-#                     )
-#             return fig_s
-#         else:
-#             raise PreventUpdate
-
-#     # Define callback to update image src on hover
-#     @app.callback(Output("init", "figure"), Input("graph_interaction", "hoverData"))
-#     def display_hover_data_init(hoverData):
-#         if hoverData:
-#             path = pathlib.Path(hoverData["points"][0]["customdata"]).parent/"m0.omf"
-#             field = df.Field.from_file(path)
-#             fig_s = px.imshow(
-#                 np.transpose(field.orientation.z.sel("z").array.squeeze()),
-#                 color_continuous_scale="RdBu_r",
-#                 zmin=-1,
-#                 zmax=1,
-#                 origin="lower",
-#             )
-#             fig_s.update(
-#                     layout_coloraxis_showscale=False,
-#                     layout_margin=dict(l=20, r=20, t=20, b=20),
-#                     )
-#             return fig_s
-#         else:
-#             raise PreventUpdate
-
-
-#     return app.run_server(debug=True)
+    display(fig)

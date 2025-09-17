@@ -1,0 +1,61 @@
+model_type: "variational"
+threshold: 4
+learning_rate: 0.001
+batch_size: 64
+config:
+  - type: Conv
+    in_channels: 3
+    out_channels: 16
+    kernel_size: 7
+    stride: 2
+    # dim : 80 -> 40
+
+  - type: Conv
+    in_channels: 16
+    out_channels: 32
+    kernel_size: 5
+    stride: 2
+    # dim : 40 -> 20
+
+  - type: Conv
+    in_channels: 32
+    out_channels: 64
+    kernel_size: 5
+    stride: 2
+    # dim : 20 -> 10
+  
+  - type: Conv
+    in_channels: 64
+    out_channels: 128
+    kernel_size: 3
+    stride: 2
+    # dim : 10 -> 5
+  
+  - type: Conv
+    in_channels: 128
+    out_channels: 256
+    kernel_size: 3
+    stride: 2
+    # dim : 5 -> 3
+  
+  - type: Conv
+    in_channels: 256
+    out_channels: 512
+    kernel_size: 3
+    stride: 3
+    # dim : 3 -> 1
+
+  - type: Flatten
+    in_channels: 512
+    in_size: 1
+    out_features: 512
+
+  - type: Linear
+    in_features: 512
+    out_features: 32
+    activation: "LeakyReLU"
+  
+  - type: Linear
+    in_features: 32
+    out_features: 2
+    activation: None

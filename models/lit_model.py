@@ -1,246 +1,172 @@
 """Lightning module for training and evaluation."""
 
 import os
-
-import numpy as np
-import torch
 import lightning as L
-from sklearn.cluster import HDBSCAN
-import matplotlib.pyplot as plt
-import imageio
+import torch
+from sklearn.model_selection import train_test_split
+from torch.optim import Adam
+from torch.utils.data import DataLoader
 
-from models import vanilla, variational
-from cluster_acc import purity, adj_rand_index
-from plot import plot_umap
-
-sim_arr_tensor = torch.load('./data/sim_arr_tensor.pt')
+from models.auto_encoder import AutoEncoder, VarAutoEncoder
 
 
-class LitAE(L.LightningModule):
+class DataModule(L.LightningDataModule):
+    """Lightning data module for loading and preprocessing data."""
+
+    def __init__(self, batch_size: int, num_workers: int):
+        super().__init__()
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+
+    def setup(self, stage=None):
+        self.data = torch.load("data/sim_arr_tensor.pt")
+        train_data, test_data = train_test_split(
+            self.data, test_size=0.2, random_state=42
+        )
+        self.train_data, self.val_data = train_test_split(
+            train_data, test_size=0.2, random_state=42
+        )
+        self.test_data = test_data
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_data,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_data,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+        )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_data,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+        )
+
+
+class LitModel(L.LightningModule):
     """Lightning module for training and evaluation."""
 
-    def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
+    def __init__(
+        self,
+        model_type: str,
+        config: list,
+        learning_rate: float,
+        threshold: float | None = None,
+    ):
         super().__init__()
-        self.cluster = cluster
-        self.gif = gif
-        self.frames = []  # For storing images to make GIF
-        self.lr = hyperparameters["lr"]
-        encoder = vanilla.Encoder(hyperparameters["num_layers"],
-                                  hyperparameters["poolsize"],
-                                  hyperparameters["channels"],
-                                  hyperparameters["kernel_sizes"],
-                                  hyperparameters["dilations"],
-                                  hyperparameters["activations"])
-        decoder = vanilla.Decoder(encoder)
-        self.model = vanilla.AutoEncoder(encoder, decoder)
+        self.model_type = model_type
+        if model_type == "vanilla":
+            self.model = AutoEncoder(config)
+        elif model_type == "variational":
+            self.model = VarAutoEncoder(config)
+            self.threshold = 8
+        self.learning_rate = learning_rate
+        # write the model type and configuration to the hparams.yaml file
+        self.save_hyperparameters("model_type", "config", "learning_rate")
+        if model_type == "variational":
+            self.save_hyperparameters("threshold")
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        optimizer = Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
+
+    def beta_scheduler(self, current_epoch, init_phase=20):
+        """0 for the first 20 epochs, then gradually increase to 1."""
+        # beta =0 for the first cycle
+        if current_epoch < init_phase:
+            beta = 0
+        else:
+            beta = min(1.0, (current_epoch - init_phase) / 100)
+        return beta
 
     def training_step(self, batch, batch_idx):
-        x_recon = self.model(batch)
-        loss = self.model.get_loss(batch, x_recon)
-        self.log("train_loss", loss)
+        batch = batch.float().to("cuda")
+        # torch.autograd.set_detect_anomaly(True)
+
+        if self.model_type == "variational":
+            batch_recon, mean, log_var = self.model(batch)
+            recon_loss = self.model.get_recon_loss(batch, batch_recon)
+            self.log("train_recon_loss", recon_loss, sync_dist=True)
+
+            kl_loss = self.model.get_kl_divergence(mean, log_var)
+            self.log("train_kl_loss", kl_loss, sync_dist=True)
+
+            # beta = self.beta_scheduler(self.current_epoch)
+            loss = recon_loss + max(kl_loss, self.threshold)
+
+        else:
+            loss = self.model.get_loss(batch, self.model(batch))
+
+        self.log("train_loss", loss, sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x_recon = self.model(batch)
-        loss = self.model.get_loss(batch, x_recon)
-        self.log("val_loss", loss)
+        batch = batch.float().to("cuda")
+        if self.model_type == "variational":
+            batch_recon, mean, log_var = self.model(batch)
+            recon_loss = self.model.get_recon_loss(batch, batch_recon)
+            self.log("val_recon_loss", recon_loss, sync_dist=True)
+
+            kl_loss = self.model.get_kl_divergence(mean, log_var)
+            self.log("val_kl_loss", kl_loss, sync_dist=True)
+
+            # beta = self.beta_scheduler(self.current_epoch)
+            loss = recon_loss + max(kl_loss, self.threshold)
+
+        else:
+            loss = self.model.get_loss(batch, self.model(batch))
+
+        self.log("val_loss", loss, sync_dist=True)
+
+    def encode_data(self, model, dataloader):
+        """Encode the data using the trained VAE or AE."""
+        encoded_data = []
+        model.eval()
+        with torch.no_grad():
+            for i, batch in enumerate(dataloader):
+                batch = batch.float().to("cuda")
+                if self.model_type == "variational":
+                    encoded_batch = model.latent_space(batch)
+                    encoded_data.append(encoded_batch.cpu())
+                else:
+                    encoded_batch = model.encoder(batch)
+                    encoded_data.append(encoded_batch.cpu())
+        encoded_data = torch.cat(encoded_data, dim=0)
+        return encoded_data
 
     def on_validation_epoch_end(self):
-        if self.cluster or self.gif:
-            feature_array = self.model.feature_array(sim_arr_tensor)
+        # pass
+        os.makedirs(f"{self.logger.log_dir}/latent_space_per_epoch", exist_ok=True)
+        latent_space = self.encode_data(
+            self.model,
+            DataLoader(self.trainer.datamodule.data, batch_size=64, shuffle=False),
+        )
+        torch.save(
+            latent_space,
+            f"{self.logger.log_dir}/latent_space_per_epoch/{self.current_epoch}.pth",
+        )
 
-            hdbscan_model = HDBSCAN(
-                min_cluster_size=3, cluster_selection_epsilon=0.9)
-            labels = hdbscan_model.fit_predict(feature_array)
+        os.makedirs(f"{self.logger.log_dir}/reconstructions", exist_ok=True)
+        with torch.no_grad():
+            recon = self.model(
+                self.trainer.datamodule.data[1].unsqueeze(0).float().to("cuda")
+            )
+        torch.save(
+            recon,
+            f"{self.logger.log_dir}/reconstructions/{self.current_epoch}.pth",
+        )
 
-            if self.cluster:
-                self.log_dict({"purity_score": purity(labels),
-                              "ARI": adj_rand_index(labels)})
-
-            if self.gif:
-                # create folder if it doesn't exist
-                if not os.path.exists("ae_umap"):
-                    os.makedirs("ae_umap")
-                # save feature array and labels to disk
-                np.save(f"ae_umap/fa_{self.current_epoch}.npy", feature_array)
-                np.save(f"ae_umap/l_{self.current_epoch}.npy", labels)
-                # plot_umap(feature_array, labels)
-                # fname = f"umap_frame_{self.current_epoch}.png"
-                # plt.savefig(fname)
-                # plt.close()
-                # self.frames.append(fname)
-
-    def test_step(self, batch, batch_idx):
-        x_recon = self.model(batch)
-        loss = self.model.get_loss(batch, x_recon)
-        self.log("test_loss", loss)
-
-
-class LitVAE(L.LightningModule):
-    """Lightning module for training and evaluation."""
-
-    def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
-        super().__init__()
-        self.cluster = cluster
-        self.gif = gif
-        self.frames = []  # For storing images to make GIF
-        self.lr = hyperparameters["lr"]
-        encoder = variational.Encoder(hyperparameters["num_layers"],
-                                      hyperparameters["poolsize"],
-                                      hyperparameters["channels"],
-                                      hyperparameters["kernel_sizes"],
-                                      hyperparameters["dilations"],
-                                      hyperparameters["activations"])
-        decoder = variational.Decoder(encoder)
-        self.model = variational.AutoEncoder(encoder, decoder)
-        self.beta = hyperparameters["beta"] if "beta" in hyperparameters else 1.0
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
-
-    def training_step(self, batch, batch_idx):
-        x_recon, mu, logvar = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar)
-        self.log("train_reconstruction_loss", reconstruction_loss)
-        self.log("train_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + self.beta * kl_divergence
-        self.log("train_loss", loss)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x_recon, mu, logvar = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar)
-        self.log("val_reconstruction_loss", reconstruction_loss)
-        self.log("val_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + kl_divergence
-        self.log("val_loss", loss)
-
-    def on_validation_epoch_end(self):
-        if self.cluster or self.gif:
-            feature_array = self.model.feature_array(sim_arr_tensor)
-
-            hdbscan_model = HDBSCAN(min_cluster_size=3,
-                                    cluster_selection_epsilon=0.9)
-            labels = hdbscan_model.fit_predict(feature_array)
-
-            if self.cluster:
-                self.log_dict({"purity_score": purity(labels),
-                               "ARI": adj_rand_index(labels)})
-
-            if self.gif:
-                # create folder if it doesn't exist
-                if not os.path.exists("vae_umap"):
-                    os.makedirs("vae_umap")
-                # save feature array and labels to disk
-                np.save(f"vae_umap/fa_{self.current_epoch}.npy", feature_array)
-                np.save(f"vae_umap/l_{self.current_epoch}.npy", labels)
-                #plot_umap(feature_array, labels)
-                #fname = f"umap_frame_{self.current_epoch}.png"
-                #plt.savefig(fname)
-                #plt.close()
-                #self.frames.append(fname)
-
-    def test_step(self, batch, batch_idx):
-        x_recon, mu, logvar = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar)
-        self.log("test_reconstruction_loss", reconstruction_loss)
-        self.log("test_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + kl_divergence
-        self.log("test_loss", loss)
-
-
-class LitVaDE(L.LightningModule):
-
-    """Lightning module for training and evaluation."""
-
-    def __init__(self, hyperparameters: dict, cluster: bool = False, gif: bool = False):
-        super().__init__()
-        self.cluster = cluster
-        self.gif = gif
-        self.frames = []  # For storing images to make GIF
-        self.lr = hyperparameters["lr"]
-        encoder = variational.Encoder(hyperparameters["num_layers"],
-                                      hyperparameters["poolsize"],
-                                      hyperparameters["channels"],
-                                      hyperparameters["kernel_sizes"],
-                                      hyperparameters["dilations"],
-                                      hyperparameters["activations"])
-        decoder = variational.Decoder(encoder)
-        self.model = variational.DeepEmbedding(encoder, decoder,
-                                               hyperparameters["n_clusters"])
-        self.beta = hyperparameters["beta"] if "beta" in hyperparameters else 1.0
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
-
-    def training_step(self, batch, batch_idx):
-        x_recon, mu, logvar, z = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar, z)
-        self.log("train_reconstruction_loss", reconstruction_loss)
-        self.log("train_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + self.beta * kl_divergence
-        self.log("train_loss", loss)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x_recon, mu, logvar, z = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar, z)
-        self.log("val_reconstruction_loss", reconstruction_loss)
-        self.log("val_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + kl_divergence
-        self.log("val_loss", loss)
-
-    def on_validation_epoch_end(self):
-        if self.cluster or self.gif:
-            feature_array = self.model.feature_array(sim_arr_tensor)
-
-            labels = self.model.classify(sim_arr_tensor.to('cuda'))
-            labels = labels.detach().cpu().numpy()
-
-            if self.cluster:
-                self.log_dict({"purity_score": purity(labels),
-                               "ARI": adj_rand_index(labels)})
-
-            if self.gif:
-                plot_umap(feature_array, labels)
-                fname = f"umap_frame_{self.current_epoch}.png"
-                plt.savefig(fname)
-                plt.close()
-                self.frames.append(fname)
-
-    def on_fit_end(self) -> None:
-        """If gif is True, create a gif from the saved frames."""
-        if self.gif and self.frames:
-            images = []
-            for filename in self.frames:
-                images.append(imageio.imread(filename))
-            imageio.mimsave('latent_space_evolution_vade.gif', images, fps=2)
-
-            # Clean up image files after GIF creation
-            for file in self.frames:
-                if os.path.exists(file):
-                    os.remove(file)
-            self.frames.clear()
-
-    def test_step(self, batch, batch_idx):
-        x_recon, mu, logvar, z = self.model(batch)
-        reconstruction_loss = self.model.get_reconstruction_loss(
-            batch, x_recon)
-        kl_divergence = self.model.get_kl_divergence(mu, logvar, z)
-        self.log("test_reconstruction_loss", reconstruction_loss)
-        self.log("test_kl_divergence", kl_divergence)
-        loss = reconstruction_loss + kl_divergence
-        self.log("test_loss", loss)
+    def on_fit_end(self):
+        # save the model
+        torch.save(self.model.state_dict(), f"{self.logger.log_dir}/model.pth")
+        print("Model saved")
