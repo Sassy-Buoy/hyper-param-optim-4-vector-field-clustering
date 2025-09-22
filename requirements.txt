@@ -1,5 +1,5 @@
 # Core ML frameworks
-torch>=2.0.0
+torch==2.8.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
 lightning>=2.0.0
 torchmetrics>=1.0.0
 
@@ -10,7 +10,6 @@ scikit-learn>=1.0.0
 
 # Visualization
 matplotlib>=3.5.0
-plotly>=5.0.0
 
 # Jupyter environment
 ipywidgets>=8.0.0
