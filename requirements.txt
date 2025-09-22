@@ -1,0 +1,25 @@
+# Core ML frameworks
+torch==2.8.0+cpu --extra-index-url https://download.pytorch.org/whl/cpu
+lightning>=2.0.0
+torchmetrics>=1.0.0
+
+# Data processing and analysis
+numpy>=1.21.0
+pandas>=2.0.0
+scikit-learn>=1.0.0
+
+# Visualization
+matplotlib>=3.5.0
+
+# Jupyter environment
+ipywidgets>=8.0.0
+
+# Image processing (for GIFs)
+imageio>=2.15.0
+Pillow>=8.0.0
+
+# Configuration
+PyYAML>=6.0.0
+
+# Progress bars
+tqdm>=4.0.0
