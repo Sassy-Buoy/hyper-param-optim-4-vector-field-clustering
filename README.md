@@ -2,7 +2,14 @@
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Sassy-Buoy/hyper-param-optim-4-vector-field-clustering/HEAD?urlpath=%2Fdoc%2Ftree%2Ftest.ipynb)
 
-This project implements autoencoder-based dimensionality reduction and clustering for vector field data. The system trains both vanilla and variational autoencoders to learn meaningful representations of magnetic field simulations for clustering analysis. Hyperparameter optimization is performed using Optuna.
+This project implements autoencoder-based dimensionality reduction and clustering for vector field data. The system trains autoencoder and variational autoencoders to learn meaningful representations of magnetic field simulations for clustering analysis. Hyperparameter optimization is performed using Optuna.
+
+## Micromagnetic Simulations
+
+- Simulations of a FeGe (iron germanide) disc (diameter = 160 nm, thickness = 10 nm) under varying external magnetic field (0 to 1.2 T). 
+- The physical energy contributions used include exchange, Dzyaloshinskii–Moriya interaction (DMI), magnetostatic energy, Zeeman energy.
+- Discretized with a mesh of cubic cells of side 2 nm (leading to an effective grid of size ~ 80×80 in-plane × 3 components) so that each field configuration is a 3-component vector per cell. 
+- Many equilibrium states per applied field by varying initial conditions (to explore possible metastable states), obtaining 3010 equilibrium states to classify.
 
 ## Project Overview
 
@@ -15,24 +22,24 @@ The project focuses on:
 
 ## Project Structure
 
-### Data Directory (`data/`)
+### Data Directory (**`data/`**)
 
-- `data-generation-scripts/` : Scripts for generating magnetic field simulations. See another repo for details.
-- `sims/` : Raw simulation files in OOMMF format.
+- **`data-generation-scripts/`** : Scripts for generating magnetic field simulations. See another repo for details.
+- **`sims/`** : Raw simulation files in OOMMF format.
 - **`parameters_dict.json`**: Simulation parameters for each data sample
 - **`simulation_file_paths.json`**: File paths to original simulation files
 - **`sim_arr_tensor.pt`**: Preprocessed tensor data containing magnetic field simulations. Not included due to size constraints.
 - **`labels.npy`**: Ground truth clustering labels for evaluation
-- **`load_data.py`**: Data loading utilities for processing raw simulation files (⚠️ **DO NOT RUN** - processes raw simulation data)
+- **`load_data.py`**: Data loading utilities for processing raw simulation files.
 - **`data/field_images/`**: Directory containing magnetic field visualization images in .png format. Useful for inspecting the clustering quality.
 
-### Models Directory (`models/`)
+### Models Directory (**`models/`**)
 
 - **`__init__.py`**: Package initialization, exports main classes
-- **`auto_encoder.py`**: Implementation of vanilla and variational autoencoder architectures
+- **`auto_encoder.py`**: Implementation of autoencoder and variational autoencoder architectures
 - **`lit_model.py`**: PyTorch Lightning module for training, validation, and data handling
 
-### Plotting Directory (`plot/`)
+### Plotting Directory (**`plot/`**)
 
 - **`__init__.py`**: Package initialization
 - **`plotting.py`**: Magnetic field visualization utilities with matplotlib and plotly
@@ -42,7 +49,7 @@ The project focuses on:
 
 ### 
 
-### Hyperparameter Optimization (`z_hyperopt/`)
+### Hyperparameter Optimization (**`z_hyperopt/`**)
 
 - **`run.py`**: Main Optuna optimization script
 - **`search_space.py`**: Defines hyperparameter search spaces
@@ -51,7 +58,7 @@ The project focuses on:
 - **`optuna.db`**: Optuna study database
 - **`run.sh`**, **`run_parallel.sh`**: Scripts for running optimization jobs
 
-### Training Logs (`lightning_logs/`)
+### Training Logs (**`lightning_logs/`**)
 
 - **`version_*/`**: PyTorch Lightning training logs, checkpoints, and metrics for different training runs. Model checkpoints are automatically saved based on validation performance.
 
@@ -131,7 +138,6 @@ Edit `config.yaml` to modify:
 
 The training produces:
 - Trained model weights
+- Best model checkpoints
 - Latent space representations for each epoch
-- Reconstruction samples
-- Training metrics and logs
-- UMAP visualizations of learned embeddings
+- Training metrics

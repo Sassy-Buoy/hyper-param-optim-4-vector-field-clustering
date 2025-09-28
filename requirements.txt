@@ -10,16 +10,16 @@ scikit-learn>=1.0.0
 
 # Visualization
 matplotlib>=3.5.0
+plotly>=5.0.0
 
 # Jupyter environment
 ipywidgets>=8.0.0
-
-# Image processing (for GIFs)
-imageio>=2.15.0
-Pillow>=8.0.0
 
 # Configuration
 PyYAML>=6.0.0
 
 # Progress bars
 tqdm>=4.0.0
+
+# model summary
+torchsummary>=1.5.0

@@ -2,16 +2,14 @@
 
 # Exposing certain classes and functions
 from .training_log import training_log
-from .plot_recon import plot_recon, reconstruct, reconstruct_gif
-from .plotting import plot_all_examples, plot_class
-# from .plot_umap import plot_umap
+from .reconstruction import reconstruction
+from .scatter_interactive import scatter_interactive
+from .latent_space import latent_space
 
 __all__ = [
     "training_log",
-    "plot_recon",
-    "reconstruct",
-    "reconstruct_gif",
-    "plot_all_examples",
+    "reconstruction",
     "plot_class",
-    # "plot_umap",
+    "scatter_interactive",
+    "latent_space",
 ]

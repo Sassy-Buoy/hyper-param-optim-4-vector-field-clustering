@@ -1,4 +1,4 @@
-"""Lightning module for training and evaluation."""
+"""Lightning module for training, evaluation and data handling."""
 
 import os
 import lightning as L
@@ -14,11 +14,20 @@ class DataModule(L.LightningDataModule):
     """Lightning data module for loading and preprocessing data."""
 
     def __init__(self, batch_size: int, num_workers: int):
+        """Initializes the data module.
+        Args:
+            batch_size (int): Batch size for data loaders.
+            num_workers (int): Number of workers for data loaders.
+        """
         super().__init__()
         self.batch_size = batch_size
         self.num_workers = num_workers
 
     def setup(self, stage=None):
+        """
+        Operations to be performed on every GPU in distributed mode.
+        Loads and splits the data into training, validation, and test sets.
+        """
         self.data = torch.load("data/sim_arr_tensor.pt")
         train_data, test_data = train_test_split(
             self.data, test_size=0.2, random_state=42
@@ -29,6 +38,7 @@ class DataModule(L.LightningDataModule):
         self.test_data = test_data
 
     def train_dataloader(self):
+        """Creates the training dataloader."""
         return DataLoader(
             self.train_data,
             batch_size=self.batch_size,
@@ -37,6 +47,7 @@ class DataModule(L.LightningDataModule):
         )
 
     def val_dataloader(self):
+        """Creates the validation dataloader."""
         return DataLoader(
             self.val_data,
             batch_size=self.batch_size,
@@ -45,6 +56,7 @@ class DataModule(L.LightningDataModule):
         )
 
     def test_dataloader(self):
+        """Creates the test dataloader."""
         return DataLoader(
             self.test_data,
             batch_size=self.batch_size,
@@ -63,6 +75,14 @@ class LitModel(L.LightningModule):
         learning_rate: float,
         threshold: float | None = None,
     ):
+        """Initializes the Lightning module.
+        Also initializes the model with specified architecture and saves hyperparameters to hparams.yaml.
+        Args:
+            model_type (str): Type of model to use ("vanilla" or "variational").
+            config (list): Configuration for the model architecture.
+            learning_rate (float): Learning rate for the optimizer.
+            threshold (float, optional): Threshold for KL divergence in VAE. Defaults to None.
+        """
         super().__init__()
         self.model_type = model_type
         if model_type == "vanilla":
@@ -77,11 +97,20 @@ class LitModel(L.LightningModule):
             self.save_hyperparameters("threshold")
 
     def configure_optimizers(self):
+        """Configures the optimizer."""
         optimizer = Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
 
     def beta_scheduler(self, current_epoch, init_phase=20):
-        """0 for the first 20 epochs, then gradually increase to 1."""
+        """
+        Scheduler for beta in the VAE loss function.
+        Sets beta to 0 for the first 20 epochs, then gradually increase to 1.
+        Args:
+            current_epoch (int): Current epoch number.
+            init_phase (int, optional): Number of epochs with beta=0. Defaults to 20.
+        Returns:
+            float: Value of beta for the current epoch.
+        """
         # beta =0 for the first cycle
         if current_epoch < init_phase:
             beta = 0
@@ -129,7 +158,13 @@ class LitModel(L.LightningModule):
         self.log("val_loss", loss, sync_dist=True)
 
     def encode_data(self, model, dataloader):
-        """Encode the data using the trained VAE or AE."""
+        """Encode the data using the trained VAE or AE.
+        Args:
+            model (torch.nn.Module): Trained model (VAE or AE).
+            dataloader (DataLoader): DataLoader for the data to be encoded.
+        Returns:
+            torch.Tensor: Encoded data.
+        """
         encoded_data = []
         model.eval()
         with torch.no_grad():
@@ -145,7 +180,7 @@ class LitModel(L.LightningModule):
         return encoded_data
 
     def on_validation_epoch_end(self):
-        # pass
+        """Logs the latent space and reconstructions at the end of each validation epoch."""
         os.makedirs(f"{self.logger.log_dir}/latent_space_per_epoch", exist_ok=True)
         latent_space = self.encode_data(
             self.model,
@@ -167,6 +202,7 @@ class LitModel(L.LightningModule):
         )
 
     def on_fit_end(self):
-        # save the model
+        """Saves the trained model at the end of training."""
+        os.makedirs(f"{self.logger.log_dir}", exist_ok=True)
         torch.save(self.model.state_dict(), f"{self.logger.log_dir}/model.pth")
         print("Model saved")
